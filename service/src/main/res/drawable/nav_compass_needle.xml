@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    Small compass dial. Drawn pointing up and rotated by the activity, so the pointer ends up
+    aimed at the direction Maps told us to head.
+
+    Sized for roughly 26dp on screen, so the shapes are deliberately chunky: a thin needle would
+    disappear at that size on the Verge panel.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26dp"
+    android:height="26dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Dial -->
+    <path
+        android:fillColor="#25272C"
+        android:pathData="M24,2 A22,22 0 1,1 23.9,2 Z" />
+
+    <!-- Rim -->
+    <path
+        android:strokeColor="#767F8C"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.55"
+        android:fillColor="#00000000"
+        android:pathData="M24,3 A21,21 0 1,1 23.9,3" />
+
+    <!-- Pointer towards the target heading -->
+    <path
+        android:fillColor="#0ACF83"
+        android:pathData="M24,7 L31,25 L24,21 L17,25 Z" />
+
+</vector>

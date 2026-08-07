@@ -282,4 +282,58 @@ public class NavigationTextParser {
 
         return (rest == 0) ? (hours + " j") : (hours + " j " + rest + " mnt");
     }
+
+    /**
+     * Compass bearings for the directions Maps names in its instructions.
+     *
+     * Ordered longest first on purpose: "timur laut" has to be matched before "timur", and
+     * "barat daya" before "barat", or the compound directions collapse into the simple ones.
+     */
+    private static final String[][] BEARINGS = {
+            {"timur laut", "45"},   {"northeast", "45"},  {"north east", "45"},
+            {"barat laut", "315"},  {"northwest", "315"}, {"north west", "315"},
+            {"barat daya", "225"},  {"southwest", "225"}, {"south west", "225"},
+            {"tenggara", "135"},    {"southeast", "135"}, {"south east", "135"},
+            {"utara", "0"},         {"north", "0"},
+            {"selatan", "180"},     {"south", "180"},
+            {"timur", "90"},        {"east", "90"},
+            {"barat", "270"},       {"west", "270"},
+    };
+
+    /**
+     * Reads the compass bearing out of an instruction such as "Ke arah timur" or "Head northeast".
+     *
+     * Maps only names a direction while there is no specific manoeuvre to give - heading off at the
+     * start of a trip, or after losing the route - which is exactly when a compass is worth having.
+     *
+     * @return degrees clockwise from north, or -1 when the instruction names no direction
+     */
+    public static int bearingOf(String instruction) {
+        if (instruction == null)
+            return -1;
+
+        final String text = normalize(instruction).toLowerCase(java.util.Locale.ROOT);
+        if (text.isEmpty())
+            return -1;
+
+        for (String[] entry : BEARINGS) {
+            if (containsWord(text, entry[0]))
+                return Integer.parseInt(entry[1]);
+        }
+
+        return -1;
+    }
+
+    /** Whole-word match, so "baratang" never counts as "barat". */
+    private static boolean containsWord(String text, String word) {
+        final int index = text.indexOf(word);
+        if (index < 0)
+            return false;
+
+        final boolean startOk = (index == 0) || !Character.isLetter(text.charAt(index - 1));
+        final int after = index + word.length();
+        final boolean endOk = (after >= text.length()) || !Character.isLetter(text.charAt(after));
+
+        return startOk && endOk;
+    }
 }

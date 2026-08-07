@@ -34,6 +34,7 @@ public class NavigationData extends Transportable implements Parcelable {
     private static final String SCREEN_ON = "screenOn";
     private static final String KEEP_SCREEN_ON = "keepScreenOn";
     private static final String PROGRESS_PERCENT = "progressPercent";
+    private static final String BEARING = "bearing";
 
     // "Turn right onto", the road name in the Maps notification
     private String nextRoad;
@@ -59,6 +60,8 @@ public class NavigationData extends Transportable implements Parcelable {
     private boolean keepScreenOn;
     // How far along the route we are, 0-100, or -1 when Maps did not say
     private int progressPercent;
+    // Compass bearing the instruction names, degrees from north, or -1 when it names none
+    private int bearing;
 
     public NavigationData() {
         this.nextRoad = "";
@@ -75,6 +78,7 @@ public class NavigationData extends Transportable implements Parcelable {
         this.screenOn = false;
         this.keepScreenOn = false;
         this.progressPercent = -1;
+        this.bearing = -1;
     }
 
     protected NavigationData(Parcel in) {
@@ -92,6 +96,7 @@ public class NavigationData extends Transportable implements Parcelable {
         screenOn = in.readByte() != 0;
         keepScreenOn = in.readByte() != 0;
         progressPercent = in.readInt();
+        bearing = in.readInt();
     }
 
     public static final Creator<NavigationData> CREATOR = new Creator<NavigationData>() {
@@ -123,6 +128,7 @@ public class NavigationData extends Transportable implements Parcelable {
         dataBundle.putBoolean(SCREEN_ON, screenOn);
         dataBundle.putBoolean(KEEP_SCREEN_ON, keepScreenOn);
         dataBundle.putInt(PROGRESS_PERCENT, progressPercent);
+        dataBundle.putInt(BEARING, bearing);
 
         return dataBundle;
     }
@@ -144,6 +150,7 @@ public class NavigationData extends Transportable implements Parcelable {
         navigationData.setScreenOn(dataBundle.getBoolean(SCREEN_ON));
         navigationData.setKeepScreenOn(dataBundle.getBoolean(KEEP_SCREEN_ON));
         navigationData.setProgressPercent(dataBundle.getInt(PROGRESS_PERCENT));
+        navigationData.setBearing(dataBundle.getInt(BEARING));
 
         return navigationData;
     }
@@ -271,6 +278,14 @@ public class NavigationData extends Transportable implements Parcelable {
         this.progressPercent = progressPercent;
     }
 
+    public int getBearing() {
+        return bearing;
+    }
+
+    public void setBearing(int bearing) {
+        this.bearing = bearing;
+    }
+
     /**
      * Text-only signature of the trip state, used by the phone to avoid re-sending identical data.
      * The icon is deliberately left out: it is keyed by iconHash which is part of this signature.
@@ -310,6 +325,7 @@ public class NavigationData extends Transportable implements Parcelable {
         dest.writeByte((byte) (screenOn ? 1 : 0));
         dest.writeByte((byte) (keepScreenOn ? 1 : 0));
         dest.writeInt(progressPercent);
+        dest.writeInt(bearing);
     }
 
     @Override

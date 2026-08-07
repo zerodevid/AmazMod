@@ -126,6 +126,16 @@ public class GMapsNavigationParser {
         deriveTotalDistance();
         deriveRemainingTime();
         deriveProgress();
+        deriveBearing();
+    }
+
+    /** A named direction in the instruction becomes a compass bearing for the watch. */
+    private void deriveBearing() {
+        final int bearing = NavigationTextParser.bearingOf(navigationData.getNextRoad());
+        if (bearing >= 0) {
+            navigationData.setBearing(bearing);
+            sources.add("bearing=" + bearing);
+        }
     }
 
     /** Route completion for the watch's progress bar, from the same metres. */

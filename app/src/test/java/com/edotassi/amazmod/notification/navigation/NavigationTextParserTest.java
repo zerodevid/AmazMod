@@ -213,4 +213,44 @@ public class NavigationTextParserTest {
         assertEquals("2 j", NavigationTextParser.formatDuration(120));
         assertEquals("", NavigationTextParser.formatDuration(-1));
     }
+
+    @Test
+    public void readsTheBearingFromIndonesianInstructions() {
+        // The exact instruction the phone produced
+        assertEquals(90, NavigationTextParser.bearingOf("Ke arah timur"));
+        assertEquals(0, NavigationTextParser.bearingOf("Ke arah utara"));
+        assertEquals(180, NavigationTextParser.bearingOf("Ke arah selatan"));
+        assertEquals(270, NavigationTextParser.bearingOf("Ke arah barat"));
+    }
+
+    @Test
+    public void compoundDirectionsBeatTheirParts() {
+        // "timur laut" must not collapse into "timur", nor "barat daya" into "barat"
+        assertEquals(45, NavigationTextParser.bearingOf("Ke arah timur laut"));
+        assertEquals(315, NavigationTextParser.bearingOf("Ke arah barat laut"));
+        assertEquals(225, NavigationTextParser.bearingOf("Ke arah barat daya"));
+        assertEquals(135, NavigationTextParser.bearingOf("Ke arah tenggara"));
+    }
+
+    @Test
+    public void readsEnglishBearingsToo() {
+        assertEquals(90, NavigationTextParser.bearingOf("Head east"));
+        assertEquals(45, NavigationTextParser.bearingOf("Head northeast"));
+        assertEquals(315, NavigationTextParser.bearingOf("Head north west"));
+    }
+
+    @Test
+    public void instructionsWithoutADirectionHaveNoBearing() {
+        assertEquals(-1, NavigationTextParser.bearingOf("Belok kiri"));
+        assertEquals(-1, NavigationTextParser.bearingOf("Jl. Jenderal Sudirman"));
+        assertEquals(-1, NavigationTextParser.bearingOf(""));
+        assertEquals(-1, NavigationTextParser.bearingOf(null));
+    }
+
+    @Test
+    public void directionsMustBeWholeWords() {
+        // A road name that merely starts with a direction is not a heading
+        assertEquals(-1, NavigationTextParser.bearingOf("Jl. Baratang"));
+        assertEquals(-1, NavigationTextParser.bearingOf("Easterly Road"));
+    }
 }

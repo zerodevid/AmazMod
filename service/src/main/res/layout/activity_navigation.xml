@@ -251,4 +251,22 @@
 
     </LinearLayout>
 
+    <!--
+        Compass, small and out of the way in the top right.
+
+        Overlaid rather than placed in the column on purpose: it costs no layout height, which
+        matters on a 240dp screen, and it stays put while the instruction below it changes. The
+        margins keep it inside the round bezel rather than on the cut-off corner.
+    -->
+    <ImageView
+        android:id="@+id/activity_navigation_compass"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="32dp"
+        android:layout_marginEnd="32dp"
+        android:src="@drawable/nav_compass_needle"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
 </android.support.wearable.view.BoxInsetLayout>

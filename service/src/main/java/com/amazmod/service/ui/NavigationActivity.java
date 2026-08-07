@@ -2,6 +2,10 @@ package com.amazmod.service.ui;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -27,6 +31,8 @@ import java.util.Date;
 
 import amazmod.com.transport.data.NavigationData;
 
+import static android.content.Context.SENSOR_SERVICE;
+
 /**
  * Full screen turn-by-turn display, fed by the Google Maps notification running on the phone.
  *
@@ -38,11 +44,21 @@ public class NavigationActivity extends Activity {
 
     private static final long STALE_CHECK_INTERVAL = 10000L;
     private static final long SILENCE_WARNING = 20000L;
+    // Fraction of each new reading folded in; low enough that the needle stops shivering
+    private static final float COMPASS_SMOOTHING = 0.15f;
 
     private ImageView iconImage;
     private FrameLayout iconHolder;
     private ProgressBar progressBar;
     private TextView clockText;
+    private ImageView compassImage;
+
+    private SensorManager sensorManager;
+    private SensorEventListener compassListener;
+    // Where Maps told us to head, degrees from north, or -1 when it named no direction
+    private int targetBearing = -1;
+    // Smoothed heading of the watch itself
+    private float heading = Float.NaN;
     private TextView distanceText, roadText, roadDescriptionText, statusText;
     private TextView remainingValue, durationValue, arrivalValue;
     private TextView remainingLabel, durationLabel, arrivalLabel;
@@ -64,6 +80,9 @@ public class NavigationActivity extends Activity {
         iconHolder = findViewById(R.id.activity_navigation_icon_holder);
         progressBar = findViewById(R.id.activity_navigation_progress);
         clockText = findViewById(R.id.activity_navigation_clock);
+        compassImage = findViewById(R.id.activity_navigation_compass);
+
+        setupCompass();
         distanceText = findViewById(R.id.activity_navigation_distance);
         roadText = findViewById(R.id.activity_navigation_road);
         roadDescriptionText = findViewById(R.id.activity_navigation_road_description);
@@ -96,6 +115,8 @@ public class NavigationActivity extends Activity {
 
         if (staleHandler != null)
             staleHandler.postDelayed(staleCheck, STALE_CHECK_INTERVAL);
+
+        startCompass();
     }
 
     @Override
@@ -105,6 +126,8 @@ public class NavigationActivity extends Activity {
 
         if (staleHandler != null)
             staleHandler.removeCallbacks(staleCheck);
+
+        stopCompass();
 
         super.onPause();
     }
@@ -130,6 +153,9 @@ public class NavigationActivity extends Activity {
 
         applyKeepScreenOn(data);
         updateClock();
+
+        targetBearing = data.getBearing();
+        updateCompass();
 
         // Maps is recalculating: it gives us a status line instead of a real instruction
         if (data.isRerouting()) {
@@ -196,6 +222,80 @@ public class NavigationActivity extends Activity {
             progressBar.setProgress(Math.min(100, percent));
             progressBar.setVisibility(View.VISIBLE);
         }
+    }
+
+    /**
+     * The compass only earns its place when Maps names a direction rather than a manoeuvre - at the
+     * start of a trip, or after losing the route - which is exactly when knowing which way to face
+     * is worth something. The rest of the time it stays out of the way.
+     */
+    private void setupCompass() {
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        if (sensorManager == null) {
+            Logger.warn("NavigationActivity no SensorManager, compass unavailable");
+            return;
+        }
+
+        compassListener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                // Readings jitter by several degrees; without smoothing the needle never settles
+                final float azimuth = event.values[0];
+                heading = Float.isNaN(heading) ? azimuth : smooth(heading, azimuth);
+                updateCompass();
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            }
+        };
+    }
+
+    /** Circular low-pass: averages across 0/360 without the needle flipping at north. */
+    private static float smooth(float previous, float next) {
+        float delta = next - previous;
+        while (delta > 180f) delta -= 360f;
+        while (delta < -180f) delta += 360f;
+
+        float result = previous + delta * COMPASS_SMOOTHING;
+        while (result < 0f) result += 360f;
+        while (result >= 360f) result -= 360f;
+
+        return result;
+    }
+
+    private void startCompass() {
+        if (sensorManager == null || compassListener == null)
+            return;
+
+        // The Huami orientation sensor reports azimuth directly and is the one alive on this watch
+        final Sensor orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+        if (orientation == null) {
+            Logger.warn("NavigationActivity no orientation sensor, compass unavailable");
+            return;
+        }
+
+        sensorManager.registerListener(compassListener, orientation, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    private void stopCompass() {
+        if (sensorManager != null && compassListener != null)
+            sensorManager.unregisterListener(compassListener);
+    }
+
+    private void updateCompass() {
+        if (compassImage == null)
+            return;
+
+        if (targetBearing < 0 || Float.isNaN(heading)) {
+            compassImage.setVisibility(View.GONE);
+            return;
+        }
+
+        // Rotating by the difference points the needle at the target no matter which way the
+        // wrist is turned: face the right way and it points straight up
+        compassImage.setRotation(targetBearing - heading);
+        compassImage.setVisibility(View.VISIBLE);
     }
 
     /**
