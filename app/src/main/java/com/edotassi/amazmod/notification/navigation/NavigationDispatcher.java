@@ -90,6 +90,11 @@ public class NavigationDispatcher {
         navigationData.setScreenOn(roadChanged && Prefs.getBoolean(
                 Constants.PREF_NAVIGATION_SCREEN_ON, Constants.PREF_DEFAULT_NAVIGATION_SCREEN_ON));
 
+        // Sent on every packet, not just on a turn: the watch needs to know the current wish even
+        // if it opened the navigation screen midway through a trip
+        navigationData.setKeepScreenOn(Prefs.getBoolean(Constants.PREF_NAVIGATION_KEEP_SCREEN_ON,
+                Constants.PREF_DEFAULT_NAVIGATION_KEEP_SCREEN_ON));
+
         final DataBundle dataBundle = navigationData.toDataBundle(new DataBundle());
         TransportService.sendWithTransporterAmazMod(Transport.NAVIGATION_DATA, dataBundle);
 

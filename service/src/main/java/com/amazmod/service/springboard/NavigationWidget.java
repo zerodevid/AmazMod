@@ -23,9 +23,6 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 import org.tinylog.Logger;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import amazmod.com.transport.data.NavigationData;
 import clc.sliteplugin.flowboard.AbstractPlugin;
 import clc.sliteplugin.flowboard.ISpringBoardHostStub;
@@ -42,7 +39,8 @@ public class NavigationWidget extends AbstractPlugin {
     private ISpringBoardHostStub host = null;
 
     private ImageView iconImage;
-    private TextView distanceText, roadText, summaryText, idleText;
+    private TextView distanceText, roadText, idleText;
+    private TextView remainingValue, durationValue, arrivalValue;
     private LinearLayout content, idle;
 
     @Override
@@ -59,10 +57,20 @@ public class NavigationWidget extends AbstractPlugin {
         iconImage = view.findViewById(R.id.navigation_widget_icon);
         distanceText = view.findViewById(R.id.navigation_widget_distance);
         roadText = view.findViewById(R.id.navigation_widget_road);
-        summaryText = view.findViewById(R.id.navigation_widget_summary);
         idleText = view.findViewById(R.id.navigation_widget_idle_text);
 
-        idleText.setText(mContext.getResources().getString(R.string.navigation_idle));
+        remainingValue = view.findViewById(R.id.navigation_widget_remaining_value);
+        durationValue = view.findViewById(R.id.navigation_widget_duration_value);
+        arrivalValue = view.findViewById(R.id.navigation_widget_arrival_value);
+
+        final android.content.res.Resources res = mContext.getResources();
+        idleText.setText(res.getString(R.string.navigation_idle));
+        ((TextView) view.findViewById(R.id.navigation_widget_remaining_label))
+                .setText(res.getString(R.string.navigation_label_remaining));
+        ((TextView) view.findViewById(R.id.navigation_widget_duration_label))
+                .setText(res.getString(R.string.navigation_label_duration));
+        ((TextView) view.findViewById(R.id.navigation_widget_arrival_label))
+                .setText(res.getString(R.string.navigation_label_arrival));
 
         if (!EventBus.getDefault().isRegistered(this))
             EventBus.getDefault().register(this);
@@ -104,27 +112,13 @@ public class NavigationWidget extends AbstractPlugin {
         roadText.setText(data.isRerouting() && data.getNextRoad().isEmpty()
                 ? mContext.getResources().getString(R.string.navigation_rerouting)
                 : data.getNextRoad());
-        summaryText.setText(buildSummary(data));
+        remainingValue.setText(orDash(data.getTotalDistance()));
+        durationValue.setText(orDash(data.getEte()));
+        arrivalValue.setText(orDash(data.getEta()));
     }
 
-    private String buildSummary(NavigationData data) {
-        final List<String> parts = new ArrayList<>();
-
-        if (!data.getEte().isEmpty())
-            parts.add(data.getEte());
-        if (!data.getTotalDistance().isEmpty())
-            parts.add(data.getTotalDistance());
-        if (!data.getEta().isEmpty())
-            parts.add(data.getEta());
-
-        final StringBuilder summary = new StringBuilder();
-        for (String part : parts) {
-            if (summary.length() > 0)
-                summary.append(" · ");
-            summary.append(part);
-        }
-
-        return summary.toString();
+    private String orDash(String value) {
+        return value.isEmpty() ? "\u2014" : value;
     }
 
     /*

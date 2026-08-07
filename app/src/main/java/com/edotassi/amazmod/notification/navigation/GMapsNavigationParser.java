@@ -67,6 +67,10 @@ public class GMapsNavigationParser {
     // Which strategy supplied what, logged when parsing goes wrong
     private final List<String> sources = new ArrayList<>();
 
+    // TEMPORARY (test build): every text the notification renders, so fields we have not located
+    // yet can be found. Remove with the probe.
+    private final List<String> seenTexts = new ArrayList<>();
+
     // True once we managed to split an instruction into road plus description
     private boolean instructionStructured = false;
 
@@ -94,10 +98,14 @@ public class GMapsNavigationParser {
                 && navigationData.getDistanceToNext().isEmpty()
                 && navigationData.getIconHash().isEmpty());
 
+        // TEMPORARY (test build): logged at error level so it survives the log-level filtering
+        // on this phone. Revert to warn/debug before committing.
         if (navigationData.isEmpty())
-            Logger.warn("GMapsNavigationParser no strategy produced data, tried: {}", sources);
+            probe("NO DATA tried=" + sources
+                    + "\n          views=" + seenTexts + "\n          extras=" + dumpExtras());
         else
-            Logger.debug("GMapsNavigationParser sources: {}", sources);
+            probe("OK sources=" + sources + " | data=" + navigationData
+                    + "\n          views=" + seenTexts + "\n          extras=" + dumpExtras());
 
         return navigationData;
     }
@@ -115,8 +123,18 @@ public class GMapsNavigationParser {
             // Read as CharSequence so the style spans that separate road from description survive
             applyInstruction(extras.getCharSequence(Notification.EXTRA_TEXT), "extras.text");
             applyDistanceToNext(text(extras.getCharSequence(Notification.EXTRA_TITLE)), "extras.title");
+
+            // Android 16 promoted-ongoing notifications carry their headline metric here, which for
+            // navigation is the distance to the next manoeuvre
+            applyDistanceToNext(text(extras.getCharSequence("android.shortCriticalText")),
+                    "extras.shortCriticalText");
+
             applySummary(text(extras.getCharSequence(Notification.EXTRA_SUB_TEXT)), "extras.subText");
             applyIcon(largeIconBitmap(), "extras.largeIcon");
+
+            // On ProgressStyle there is no EXTRA_TEXT at all and the title is the manoeuvre, so it
+            // becomes the instruction once we know it is not a distance
+            applyInstruction(extras.getCharSequence(Notification.EXTRA_TITLE), "extras.title");
 
         } catch (Exception e) {
             Logger.error("GMapsNavigationParser parseFromExtras exception: " + e.getMessage());
@@ -172,6 +190,7 @@ public class GMapsNavigationParser {
             return;
         }
 
+        collectSeenTexts(group);
         parseByViewId(group);
         parseByShape(group);
     }
@@ -267,8 +286,16 @@ public class GMapsNavigationParser {
      * Field setters, each a no-op once the field has a value, so earlier strategies win
      */
 
+    /**
+     * Only text that actually reads as a distance is accepted. Older Maps builds put "450 m" in the
+     * notification title, but on Android 16's ProgressStyle template the title holds the manoeuvre
+     * itself ("Ke arah barat"), and filing that as a distance was silently wrong.
+     */
     private void applyDistanceToNext(String value, String source) {
         if (!navigationData.getDistanceToNext().isEmpty() || value.isEmpty())
+            return;
+
+        if (!NavigationTextParser.isDistance(value))
             return;
 
         navigationData.setDistanceToNext(value);
@@ -285,7 +312,13 @@ public class GMapsNavigationParser {
         if (haveSummary)
             return;
 
-        final NavigationTextParser.Summary summary = NavigationTextParser.parseSummary(value);
+        NavigationTextParser.Summary summary = NavigationTextParser.parseSummary(value);
+
+        // Android 16's Maps gives a single field ("Tiba 00.14") rather than the old
+        // "23 min - 12 km - 20:45" line, so fall back to classifying it on its own.
+        if (summary.isEmpty())
+            summary = NavigationTextParser.parseSingleField(value);
+
         if (summary.isEmpty())
             return;
 
@@ -419,6 +452,22 @@ public class GMapsNavigationParser {
         return viewGroup;
     }
 
+    /** TEMPORARY (test build): records what the notification actually renders. */
+    private void collectSeenTexts(ViewGroup group) {
+        final List<TextView> textViews = new ArrayList<>();
+        final List<ImageView> imageViews = new ArrayList<>();
+        collectViews(group, textViews, imageViews);
+
+        for (TextView textView : textViews) {
+            final String value = text(textOf(textView));
+            if (!value.isEmpty()) {
+                final String entry = getEntryName(textView) + "='" + value + "'";
+                if (!seenTexts.contains(entry))
+                    seenTexts.add(entry);
+            }
+        }
+    }
+
     private void collectViews(ViewGroup group, List<TextView> textViews, List<ImageView> imageViews) {
         for (int i = 0; i < group.getChildCount(); i++) {
             final View child = group.getChildAt(i);
@@ -448,6 +497,47 @@ public class GMapsNavigationParser {
             }
         }
         return null;
+    }
+
+    /**
+     * TEMPORARY (test build): writes straight to a file next to the app's own logs.
+     * tinylog's file writer proved unreliable here and this phone's ROM drops app logcat output,
+     * so this is the only channel that reliably survives. Remove before committing.
+     */
+    private void probe(String message) {
+        try {
+            final java.io.File dir = context.getExternalFilesDir(null);
+            if (dir == null)
+                return;
+
+            final java.io.FileWriter writer = new java.io.FileWriter(new java.io.File(dir, "navtest.log"), true);
+            writer.write(new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                    .format(new java.util.Date()) + "  " + message + "\n\n");
+            writer.close();
+        } catch (Exception e) {
+            Logger.error("probe failed: " + e.getMessage());
+        }
+    }
+
+    /** TEMPORARY (test build): shows which notification extras Maps actually populated. */
+    private String dumpExtras() {
+        try {
+            final Bundle extras = notification.extras;
+            if (extras == null)
+                return "null";
+
+            final StringBuilder sb = new StringBuilder();
+            for (String key : extras.keySet()) {
+                final Object value = extras.get(key);
+                if (value instanceof CharSequence)
+                    sb.append(key).append("='").append(value).append("' ");
+                else if (value != null)
+                    sb.append(key).append("=<").append(value.getClass().getSimpleName()).append("> ");
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "dump failed: " + e.getMessage();
+        }
     }
 
     private String getEntryName(View view) {

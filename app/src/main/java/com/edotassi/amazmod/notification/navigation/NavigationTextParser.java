@@ -33,6 +33,10 @@ public class NavigationTextParser {
     private static final Pattern ETA_MARKER = Pattern.compile(
             "\\bETA\\b", Pattern.CASE_INSENSITIVE);
 
+    /** The clock reading on its own, so "Tiba 00.14" can be reduced to "00.14". */
+    private static final Pattern CLOCK_TOKEN = Pattern.compile(
+            "\\b\\d{1,2}[:.]\\d{2}\\b(\\s*[AaPp][Mm])?");
+
     /** The three fields of the summary line, any of which may be empty. */
     public static class Summary {
         public final String ete;
@@ -94,6 +98,41 @@ public class NavigationTextParser {
         }
 
         return new Summary(ete, distance, eta);
+    }
+
+    /**
+     * Classifies a lone value that we already know belongs to the trip summary, such as the
+     * subText of the notification. Unlike parseSummary this does not require separators, but it
+     * also refuses to guess: text that is neither a distance nor a clock returns empty rather than
+     * being filed as a duration.
+     *
+     * Google Maps on Android 16 puts "Tiba 00.14" here, which is an arrival time wearing a word.
+     */
+    public static Summary parseSingleField(String raw) {
+        if (raw == null)
+            return EMPTY;
+
+        final String text = normalize(raw);
+        if (text.isEmpty())
+            return EMPTY;
+
+        if (isDistance(text))
+            return new Summary("", text, "");
+
+        final String clock = extractClock(text);
+        if (!clock.isEmpty())
+            return new Summary("", "", clock);
+
+        return EMPTY;
+    }
+
+    /** Returns just the clock reading inside a longer string, or "" when there is none. */
+    public static String extractClock(String text) {
+        if (text == null)
+            return "";
+
+        final java.util.regex.Matcher matcher = CLOCK_TOKEN.matcher(normalize(text));
+        return matcher.find() ? matcher.group().trim() : "";
     }
 
     /** True for "450 m", "1,2 km", "12 mi". */

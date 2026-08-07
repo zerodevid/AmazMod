@@ -55,6 +55,8 @@ public class Constants {
     public static final String PREF_NAVIGATION_SCREEN_ON = "preference.navigation.screen.on";
     public static final boolean PREF_DEFAULT_NAVIGATION_SCREEN_ON = false;
     public static final String PREF_NAVIGATION_VIBRATE_ON_TURN = "preference.navigation.vibrate.on.turn";
+    public static final String PREF_NAVIGATION_KEEP_SCREEN_ON = "preference.navigation.keep.screen.on";
+    public static final boolean PREF_DEFAULT_NAVIGATION_KEEP_SCREEN_ON = true;
     public static final boolean PREF_DEFAULT_NAVIGATION_VIBRATE_ON_TURN = true;
     // Minimum gap between two navigation packets, keeps the BT tunnel from being flooded
     public static final long NAVIGATION_MIN_INTERVAL = 1500L;

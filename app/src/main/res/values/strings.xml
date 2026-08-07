@@ -517,4 +517,6 @@ follow the system theme (beta).</string>
     <string name="pref_navigation_vibrate_on_turn_summary">Short vibration when the next manoeuvre changes</string>
     <string name="pref_navigation_screen_on">Wake screen on each turn</string>
     <string name="pref_navigation_screen_on_summary">Turn the watch screen on when the next manoeuvre changes. Uses noticeably more battery</string>
+    <string name="pref_navigation_keep_screen_on">Keep watch screen on while navigating</string>
+    <string name="pref_navigation_keep_screen_on_summary">The navigation screen stays lit for the whole trip instead of timing out. Drains the watch battery noticeably faster</string>
 </resources>

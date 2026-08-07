@@ -186,4 +186,7 @@
     <string name="navigation_idle">No navigation running</string>
     <string name="navigation_rerouting">Rerouting…</string>
     <string name="navigation_waiting">Waiting for phone…</string>
+    <string name="navigation_label_remaining">Sisa</string>
+    <string name="navigation_label_duration">Durasi</string>
+    <string name="navigation_label_arrival">Tiba</string>
 </resources>

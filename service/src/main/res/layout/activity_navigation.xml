@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?><!--
     Navigation screen for the round 360x360 Verge/Stratos display.
-    Everything is centred and generously sized: this is read at a glance while riding.
+
+    Read at a glance while riding, so the next manoeuvre dominates and the trip figures sit in a
+    labelled row underneath: each one is worth showing on its own rather than merged into a single
+    line, because "how far to the turn", "how far left" and "how long left" answer different
+    questions.
 -->
 <android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -16,10 +20,10 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingStart="28dp"
-        android:paddingEnd="28dp">
+        android:paddingStart="26dp"
+        android:paddingEnd="26dp">
 
-        <!-- Manoeuvre arrow + distance until that manoeuvre -->
+        <!-- Manoeuvre arrow + how far until that manoeuvre -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -28,8 +32,8 @@
 
             <ImageView
                 android:id="@+id/activity_navigation_icon"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
                 android:layout_marginEnd="10dp"
                 android:scaleType="fitCenter"
                 android:visibility="gone"
@@ -43,7 +47,7 @@
                 android:includeFontPadding="false"
                 android:maxLines="1"
                 android:textColor="@color/colorBlue"
-                android:textSize="34sp"
+                android:textSize="36sp"
                 android:textStyle="bold"
                 tools:text="450 m" />
 
@@ -54,12 +58,12 @@
             android:id="@+id/activity_navigation_road"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:ellipsize="end"
             android:gravity="center"
             android:maxLines="2"
             android:textColor="@color/white"
-            android:textSize="19sp"
+            android:textSize="18sp"
             tools:text="Jl. Jenderal Sudirman" />
 
         <!-- Secondary instruction line, hidden when Maps does not provide one -->
@@ -67,39 +71,138 @@
             android:id="@+id/activity_navigation_road_description"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="1dp"
             android:ellipsize="end"
             android:gravity="center"
             android:maxLines="1"
             android:textColor="@color/colorGrey"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:visibility="gone"
-            tools:text="towards Bundaran HI"
+            tools:text="arah Bundaran HI"
             tools:visibility="visible" />
 
-        <!-- Trip summary: time left, distance left, arrival time -->
-        <TextView
-            android:id="@+id/activity_navigation_summary"
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="8dp"
+            android:background="@color/colorGrey"
+            android:alpha="0.35" />
+
+        <!-- Trip figures, each labelled so none of them has to be guessed at -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:ellipsize="end"
-            android:gravity="center"
-            android:maxLines="1"
-            android:textColor="@color/text"
-            android:textSize="14sp"
-            tools:text="23 min · 12 km · 20:45" />
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/activity_navigation_remaining_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    tools:text="12 km" />
+
+                <TextView
+                    android:id="@+id/activity_navigation_remaining_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textAllCaps="true"
+                    android:textColor="@color/colorGrey"
+                    android:textSize="10sp"
+                    tools:text="@string/navigation_label_remaining" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/activity_navigation_duration_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    tools:text="23 mnt" />
+
+                <TextView
+                    android:id="@+id/activity_navigation_duration_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textAllCaps="true"
+                    android:textColor="@color/colorGrey"
+                    android:textSize="10sp"
+                    tools:text="@string/navigation_label_duration" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/activity_navigation_arrival_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    tools:text="20.45" />
+
+                <TextView
+                    android:id="@+id/activity_navigation_arrival_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:textAllCaps="true"
+                    android:textColor="@color/colorGrey"
+                    android:textSize="10sp"
+                    tools:text="@string/navigation_label_arrival" />
+
+            </LinearLayout>
+
+        </LinearLayout>
 
         <!-- Shown instead of the instruction while Maps recalculates or the phone goes quiet -->
         <TextView
             android:id="@+id/activity_navigation_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:gravity="center"
             android:maxLines="1"
             android:textColor="@color/colorRed"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:visibility="gone"
             tools:text="@string/navigation_rerouting"
             tools:visibility="visible" />

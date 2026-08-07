@@ -128,4 +128,40 @@ public class NavigationTextParserTest {
         assertFalse(NavigationTextParser.looksLikeSummary("Turn right onto Jl. Merdeka"));
         assertFalse(NavigationTextParser.looksLikeSummary("450 m"));
     }
+
+    @Test
+    public void parsesTheSingleFieldAndroid16MapsGives() {
+        // Real value observed from Google Maps 26 on Android 16, locale id-ID
+        NavigationTextParser.Summary summary =
+                NavigationTextParser.parseSingleField("Tiba 00.14");
+
+        assertEquals("", summary.ete);
+        assertEquals("", summary.distance);
+        assertEquals("00.14", summary.eta);
+    }
+
+    @Test
+    public void singleFieldRecognisesADistance() {
+        NavigationTextParser.Summary summary = NavigationTextParser.parseSingleField("450 m");
+
+        assertEquals("450 m", summary.distance);
+        assertEquals("", summary.eta);
+    }
+
+    @Test
+    public void singleFieldRefusesToGuess() {
+        // An instruction is neither a distance nor a clock, so nothing should be invented from it
+        assertTrue(NavigationTextParser.parseSingleField("Ke arah barat").isEmpty());
+        assertTrue(NavigationTextParser.parseSingleField("").isEmpty());
+        assertTrue(NavigationTextParser.parseSingleField(null).isEmpty());
+    }
+
+    @Test
+    public void extractsClockFromSurroundingWords() {
+        assertEquals("00.14", NavigationTextParser.extractClock("Tiba 00.14"));
+        assertEquals("20:45", NavigationTextParser.extractClock("20:45 ETA"));
+        assertEquals("8:45 PM", NavigationTextParser.extractClock("Arrive 8:45 PM"));
+        assertEquals("", NavigationTextParser.extractClock("Ke arah barat"));
+        assertEquals("", NavigationTextParser.extractClock("1.5 km"));
+    }
 }

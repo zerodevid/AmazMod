@@ -39,6 +39,13 @@ allprojects {
     repositories {
         google()
         jcenter()
+        // jcenter() only redirects to Maven Central these days, so artifacts that were never
+        // mirrored there stopped resolving: easyprefs 1.9.0, prdownloader 0.4.0 and volley 1.1.0.
+        // This mirror still serves the original jcenter contents, which keeps every version in
+        // this build file exactly as it was rather than forcing upgrades.
+        maven {
+            url 'https://maven.aliyun.com/repository/jcenter'
+        }
         maven {
             url 'https://jitpack.io'
         }

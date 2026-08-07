@@ -76,6 +76,14 @@
             android:summary="@string/pref_navigation_screen_on_summary"
             android:title="@string/pref_navigation_screen_on" />
 
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="true"
+            android:dependency="preference.enable.navigation"
+            android:key="preference.navigation.keep.screen.on"
+            android:summary="@string/pref_navigation_keep_screen_on_summary"
+            android:title="@string/pref_navigation_keep_screen_on" />
+
         <DropDownPreference
             app:iconSpaceReserved="false"
             android:dependency="preference.enable.notifications"

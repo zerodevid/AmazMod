@@ -170,7 +170,10 @@ public class NotificationService extends NotificationListenerService {
             Logger.debug("[Notification Blocked] All notifications are disabled (disabled, DND, Driving etc). {}", notificationPackage);
             checkAndLog(notificationPackage, notificationTxt, Constants.FILTER_NOTIFICATIONS_DISABLED);
             return;
-        }else if (isNotificationsDisabledWhenScreenOn()) {
+        }else if (isNotificationsDisabledWhenScreenOn() && !isNavigationPackage(notificationPackage)) {
+            // Navigation is the one case where "don't disturb me while I'm using the phone" is
+            // backwards: the phone sits in a mount with Maps open and its screen on, which is
+            // exactly when the directions need to reach the watch.
             if (!Screen.isDeviceLocked(this)) {
                 Logger.debug("[Notification Blocked] Device is unlocked. {}", notificationPackage);
                 checkAndLog(notificationPackage, notificationTxt, Constants.FILTER_SCREENON);
@@ -636,6 +639,13 @@ public class NotificationService extends NotificationListenerService {
                 && ((prefs && (ring == AudioManager.MODE_RINGTONE))
                 || ((Arrays.binarySearch(VOICE_APP_LIST, notificationPackage) >= 0) && (ring == AudioManager.MODE_NORMAL))
                 || ((notificationPackage.contains("skype")) && (ring == AudioManager.MODE_IN_COMMUNICATION))));
+    }
+
+    /** Google Maps, whose ongoing notification carries the turn-by-turn data. */
+    private boolean isNavigationPackage(String notificationPackage) {
+        return notificationPackage != null
+                && notificationPackage.contains("android.apps.maps")
+                && Prefs.getBoolean(Constants.PREF_ENABLE_NAVIGATION, Constants.PREF_DEFAULT_ENABLE_NAVIGATION);
     }
 
     private boolean isMapsNotification(byte filterResult, String notificationPackage) {
