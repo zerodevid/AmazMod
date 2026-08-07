@@ -59,6 +59,7 @@ public class NavigationActivity extends Activity {
     private int targetBearing = -1;
     // Smoothed heading of the watch itself
     private float heading = Float.NaN;
+    private boolean compassRunning = false;
     private TextView distanceText, roadText, roadDescriptionText, statusText;
     private TextView remainingValue, durationValue, arrivalValue;
     private TextView remainingLabel, durationLabel, arrivalLabel;
@@ -264,9 +265,17 @@ public class NavigationActivity extends Activity {
         return result;
     }
 
+    /**
+     * The magnetometer is only registered while a bearing is actually on screen. Maps names a
+     * direction for a small part of a trip, so leaving the sensor running for the whole journey
+     * would spend battery on a needle nobody is being shown - and this screen may well be lit for
+     * hours.
+     */
     private void startCompass() {
-        if (sensorManager == null || compassListener == null)
+        if (sensorManager == null || compassListener == null || targetBearing < 0 || compassRunning)
             return;
+
+        compassRunning = true;
 
         // The Huami orientation sensor reports azimuth directly and is the one alive on this watch
         final Sensor orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
@@ -275,10 +284,14 @@ public class NavigationActivity extends Activity {
             return;
         }
 
-        sensorManager.registerListener(compassListener, orientation, SensorManager.SENSOR_DELAY_UI);
+        sensorManager.registerListener(compassListener, orientation, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void stopCompass() {
+        if (!compassRunning)
+            return;
+
+        compassRunning = false;
         if (sensorManager != null && compassListener != null)
             sensorManager.unregisterListener(compassListener);
     }
@@ -287,7 +300,16 @@ public class NavigationActivity extends Activity {
         if (compassImage == null)
             return;
 
-        if (targetBearing < 0 || Float.isNaN(heading)) {
+        if (targetBearing < 0) {
+            compassImage.setVisibility(View.GONE);
+            stopCompass();
+            return;
+        }
+
+        startCompass();
+
+        if (Float.isNaN(heading)) {
+            // Registered but no reading yet; showing an unrotated needle would point at nothing
             compassImage.setVisibility(View.GONE);
             return;
         }

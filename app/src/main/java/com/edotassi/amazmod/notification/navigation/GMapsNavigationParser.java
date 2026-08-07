@@ -182,7 +182,9 @@ public class GMapsNavigationParser {
         if (minutes < 0)
             return;
 
-        navigationData.setEte(NavigationTextParser.formatDuration(minutes));
+        navigationData.setEte(NavigationTextParser.formatDuration(minutes,
+                context.getString(com.edotassi.amazmod.R.string.navigation_unit_hour),
+                context.getString(com.edotassi.amazmod.R.string.navigation_unit_minute)));
         sources.add("ete=eta-now");
     }
 

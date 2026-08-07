@@ -6,12 +6,23 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import android.text.format.DateFormat;
+
+import java.util.Date;
 
 import com.amazmod.service.MainService;
 import com.amazmod.service.R;
@@ -41,6 +52,21 @@ public class NavigationWidget extends AbstractPlugin {
     private ImageView iconImage;
     private TextView distanceText, roadText, idleText;
     private TextView remainingValue, durationValue, arrivalValue;
+    private TextView clockText;
+    private ProgressBar progressBar;
+    private ImageView compassImage;
+
+    private SensorManager sensorManager;
+    private SensorEventListener compassListener;
+    private int targetBearing = -1;
+    private float heading = Float.NaN;
+
+    private Handler clockHandler;
+    private Runnable clockTicker;
+
+    // Matching the full navigation screen, for the same reasons
+    private static final float COMPASS_SMOOTHING = 0.15f;
+    private static final long CLOCK_TICK_MS = 15000L;
     private LinearLayout content, idle;
 
     @Override
@@ -62,6 +88,12 @@ public class NavigationWidget extends AbstractPlugin {
         remainingValue = view.findViewById(R.id.navigation_widget_remaining_value);
         durationValue = view.findViewById(R.id.navigation_widget_duration_value);
         arrivalValue = view.findViewById(R.id.navigation_widget_arrival_value);
+        clockText = view.findViewById(R.id.navigation_widget_clock);
+        progressBar = view.findViewById(R.id.navigation_widget_progress);
+        compassImage = view.findViewById(R.id.navigation_widget_compass);
+
+        setupCompass();
+        setupClock();
 
         final android.content.res.Resources res = mContext.getResources();
         idleText.setText(res.getString(R.string.navigation_idle));
@@ -115,6 +147,98 @@ public class NavigationWidget extends AbstractPlugin {
         remainingValue.setText(orDash(data.getTotalDistance()));
         durationValue.setText(orDash(data.getEte()));
         arrivalValue.setText(orDash(data.getEta()));
+
+        final int percent = data.getProgressPercent();
+        if (percent < 0) {
+            progressBar.setVisibility(View.GONE);
+        } else {
+            progressBar.setProgress(Math.min(100, percent));
+            progressBar.setVisibility(View.VISIBLE);
+        }
+
+        targetBearing = data.getBearing();
+        updateCompass();
+        updateClock();
+    }
+
+    private void setupClock() {
+        clockHandler = new Handler(Looper.getMainLooper());
+        clockTicker = new Runnable() {
+            @Override
+            public void run() {
+                updateClock();
+                clockHandler.postDelayed(this, CLOCK_TICK_MS);
+            }
+        };
+    }
+
+    private void updateClock() {
+        if (clockText != null && mContext != null)
+            clockText.setText(DateFormat.getTimeFormat(mContext).format(new Date()));
+    }
+
+    private void setupCompass() {
+        sensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager == null)
+            return;
+
+        compassListener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                final float azimuth = event.values[0];
+                heading = Float.isNaN(heading) ? azimuth : smooth(heading, azimuth);
+                updateCompass();
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            }
+        };
+    }
+
+    private static float smooth(float previous, float next) {
+        float delta = next - previous;
+        while (delta > 180f) delta -= 360f;
+        while (delta < -180f) delta += 360f;
+
+        float result = previous + delta * COMPASS_SMOOTHING;
+        while (result < 0f) result += 360f;
+        while (result >= 360f) result -= 360f;
+
+        return result;
+    }
+
+    /**
+     * The magnetometer only runs while this page is on screen AND a bearing is actually being
+     * shown. A widget the user swiped past has no business keeping a sensor awake.
+     */
+    private void startCompass() {
+        if (sensorManager == null || compassListener == null || targetBearing < 0)
+            return;
+
+        final Sensor orientation = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+        if (orientation != null)
+            sensorManager.registerListener(compassListener, orientation, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    private void stopCompass() {
+        if (sensorManager != null && compassListener != null)
+            sensorManager.unregisterListener(compassListener);
+    }
+
+    private void updateCompass() {
+        if (compassImage == null)
+            return;
+
+        if (targetBearing < 0 || Float.isNaN(heading)) {
+            compassImage.setVisibility(View.GONE);
+            stopCompass();
+            return;
+        }
+
+        startCompass();
+        compassImage.setRotation(targetBearing - heading);
+        compassImage.setVisibility(View.VISIBLE);
     }
 
     private String orDash(String value) {
@@ -130,10 +254,19 @@ public class NavigationWidget extends AbstractPlugin {
             refresh();
 
         this.isActive = true;
+
+        startCompass();
+        if (clockHandler != null && clockTicker != null)
+            clockHandler.postDelayed(clockTicker, CLOCK_TICK_MS);
     }
 
     private void onHide() {
         this.isActive = false;
+
+        // Nothing here is worth spending battery on once the page is out of sight
+        stopCompass();
+        if (clockHandler != null && clockTicker != null)
+            clockHandler.removeCallbacks(clockTicker);
     }
 
     @Override
@@ -170,6 +303,11 @@ public class NavigationWidget extends AbstractPlugin {
     public void onDestroy() {
         if (EventBus.getDefault().isRegistered(this))
             EventBus.getDefault().unregister(this);
+
+        stopCompass();
+        if (clockHandler != null && clockTicker != null)
+            clockHandler.removeCallbacks(clockTicker);
+
         super.onDestroy();
     }
 

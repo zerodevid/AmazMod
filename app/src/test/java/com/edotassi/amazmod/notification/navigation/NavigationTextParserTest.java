@@ -207,11 +207,15 @@ public class NavigationTextParserTest {
     }
 
     @Test
-    public void formatsDurations() {
-        assertEquals("45 mnt", NavigationTextParser.formatDuration(45));
-        assertEquals("8 j 45 mnt", NavigationTextParser.formatDuration(525));
-        assertEquals("2 j", NavigationTextParser.formatDuration(120));
-        assertEquals("", NavigationTextParser.formatDuration(-1));
+    public void formatsDurationsInWhateverUnitsItIsGiven() {
+        assertEquals("45 mnt", NavigationTextParser.formatDuration(45, "j", "mnt"));
+        assertEquals("8 j 45 mnt", NavigationTextParser.formatDuration(525, "j", "mnt"));
+        assertEquals("2 j", NavigationTextParser.formatDuration(120, "j", "mnt"));
+        assertEquals("", NavigationTextParser.formatDuration(-1, "j", "mnt"));
+
+        // Same numbers, English units: nothing about the language is baked in
+        assertEquals("45 min", NavigationTextParser.formatDuration(45, "h", "min"));
+        assertEquals("8 h 45 min", NavigationTextParser.formatDuration(525, "h", "min"));
     }
 
     @Test

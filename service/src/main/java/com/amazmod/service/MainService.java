@@ -1081,6 +1081,10 @@ public class MainService extends Service implements Transporter.DataListener {
         Logger.debug("MainService navigation: " + navigationData);
 
         final boolean wasNavigating = NavigationStore.isNavigating();
+        final NavigationData previous = NavigationStore.getCurrentData();
+        final boolean manoeuvreChanged = wasNavigating && previous != null
+                && !previous.getNextRoad().equals(navigationData.getNextRoad());
+
         NavigationStore.update(navigationData);
 
         if (navigationData.getVibration() > 0)
@@ -1089,10 +1093,17 @@ public class MainService extends Service implements Transporter.DataListener {
         if (navigationData.isScreenOn())
             acquireWakelock();
 
-        // Bring the navigation screen up on the first packet of a trip; later packets only refresh
-        // whatever is already on screen so we never steal focus mid-ride
-        if (!wasNavigating)
+        if (!wasNavigating) {
+            vibrate(NAVIGATION_START_PATTERN);
             startNavigationActivity();
+
+        } else if (manoeuvreChanged) {
+            // Swiping the screen away used to lose it for the rest of the trip. A new manoeuvre is
+            // the one moment worth interrupting for, so it is also the moment to bring the screen
+            // back. Between manoeuvres nothing is stolen: distance ticks only refresh what is
+            // already showing.
+            startNavigationActivity();
+        }
 
         EventBus.getDefault().post(new NavigationUpdateEvent(true));
     }
@@ -1102,8 +1113,14 @@ public class MainService extends Service implements Transporter.DataListener {
     public void navigationStop(NavigationStopEvent navigationStopEvent) {
         Logger.debug("MainService navigationStop");
 
+        // Only buzz for a trip that was actually running, so a stray stop is silent
+        final boolean wasNavigating = NavigationStore.isNavigating();
+
         NavigationStore.clear();
         EventBus.getDefault().post(new NavigationUpdateEvent(false));
+
+        if (wasNavigating)
+            vibrate(NAVIGATION_END_PATTERN);
     }
 
     private void startNavigationActivity() {
@@ -1114,6 +1131,28 @@ public class MainService extends Service implements Transporter.DataListener {
             context.startActivity(intent);
         } catch (Exception e) {
             Logger.error("MainService startNavigationActivity exception: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Entering and leaving navigation are worth feeling rather than looking for, since the screen
+     * may well be in a pocket or on a mount when either happens.
+     *
+     * The two are deliberately different shapes - a double tap to start, one longer pulse to end -
+     * so they can be told apart without looking. Kept independent of the per-turn vibration
+     * setting: that one fires at every manoeuvre and people switch it off, while these happen twice
+     * a trip.
+     */
+    private static final long[] NAVIGATION_START_PATTERN = {0, 60, 90, 60};
+    private static final long[] NAVIGATION_END_PATTERN = {0, 220};
+
+    private void vibrate(long[] pattern) {
+        try {
+            Vibrator vibrator = (Vibrator) context.getSystemService(VIBRATOR_SERVICE);
+            if (vibrator != null)
+                vibrator.vibrate(pattern, -1);
+        } catch (Exception e) {
+            Logger.error("MainService vibrate pattern exception: " + e.getMessage());
         }
     }
 

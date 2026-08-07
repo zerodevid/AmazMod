@@ -269,18 +269,26 @@ public class NavigationTextParser {
         }
     }
 
-    /** "45 mnt", "8 j 45 mnt" - matching the units Indonesian Maps uses. */
-    public static String formatDuration(int minutes) {
+    /**
+     * "45 mnt", "8 j 45 mnt".
+     *
+     * The unit words are passed in rather than baked in: this string is built on the phone and sent
+     * to the watch as finished text, so it has to be in the phone owner's language, and this class
+     * stays free of Android resources.
+     */
+    public static String formatDuration(int minutes, String hourUnit, String minuteUnit) {
         if (minutes < 0)
             return "";
 
         if (minutes < 60)
-            return minutes + " mnt";
+            return minutes + " " + minuteUnit;
 
         final int hours = minutes / 60;
         final int rest = minutes % 60;
 
-        return (rest == 0) ? (hours + " j") : (hours + " j " + rest + " mnt");
+        return (rest == 0)
+                ? (hours + " " + hourUnit)
+                : (hours + " " + hourUnit + " " + rest + " " + minuteUnit);
     }
 
     /**

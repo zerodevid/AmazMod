@@ -177,4 +177,12 @@
     <string name="alarm_dismiss">Dismiss</string>
     <string name="camera_delay">Delay</string>
     <string name="camera_shutter">Camera Shutter</string>
+    <!-- Google Maps turn-by-turn navigation -->
+    <string name="navigation_widget_name">Navigasi</string>
+    <string name="navigation_idle">Tidak ada navigasi</string>
+    <string name="navigation_rerouting">Mencari rute ulang…</string>
+    <string name="navigation_waiting">Menunggu ponsel…</string>
+    <string name="navigation_label_remaining">Sisa</string>
+    <string name="navigation_label_duration">Durasi</string>
+    <string name="navigation_label_arrival">Tiba</string>
 </resources>
