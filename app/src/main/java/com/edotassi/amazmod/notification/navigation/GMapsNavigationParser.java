@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Bundle;
 import android.service.notification.StatusBarNotification;
 import android.text.Spanned;
 import android.view.LayoutInflater;
@@ -17,6 +18,7 @@ import android.widget.TextView;
 
 import org.tinylog.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import amazmod.com.transport.data.NavigationData;
@@ -24,35 +26,49 @@ import amazmod.com.transport.data.NavigationData;
 /**
  * Extracts turn-by-turn data out of the ongoing Google Maps notification.
  *
- * Google Maps exposes no public API for the current navigation step, but its ongoing notification
- * is built from RemoteViews whose child views can be identified by their resource entry names.
- * The strategy is to rebuild those RemoteViews, inflate them into a real (never displayed)
- * ViewGroup, and read the values straight off the TextViews and the ImageView.
+ * Maps exposes no API for the current navigation step, so the data has to be read back out of the
+ * notification it posts. Three independent strategies are tried in order of how likely they are to
+ * survive a Maps update, and each one only fills in the fields the previous ones left empty:
  *
- * Approach ported from GMapsNotification.kt of maisonsmd/esp32-google-maps (MIT).
+ *   1. Notification.extras — public framework API, no inflation, nothing app-specific.
+ *   2. The notification's RemoteViews, looked up by view id. The ids used ("title", "text",
+ *      "header_text", "right_icon") belong to the AOSP notification template rather than to Maps,
+ *      so this keeps working as long as Maps posts a standard-style notification.
+ *   3. Shape heuristics over every text and image view in the inflated tree: whichever text parses
+ *      as a distance is the distance, whichever splits into a summary is the summary, and so on.
+ *      This survives Maps moving to a fully custom layout with ids we have never heard of.
  *
- * This is inherently coupled to Google Maps' notification layout: if Google renames those views
- * the parser returns an empty NavigationData and the caller must fall back to forwarding the
- * notification text as-is.
+ * If all three come up empty the caller falls back to forwarding the notification as plain text,
+ * which is what AmazMod did before this feature existed.
+ *
+ * Strategy 2 is ported from GMapsNotification.kt of maisonsmd/esp32-google-maps (MIT).
  */
 public class GMapsNavigationParser {
 
     public static final String GMAPS_PACKAGE = "com.google.android.apps.maps";
 
-    // Resource entry names inside the Maps notification layout
+    // AOSP notification template ids (android:id/...), not Google Maps' own
     private static final String VIEW_INSTRUCTION = "text";        // "Turn right onto Jl. Merdeka"
     private static final String VIEW_HEADER = "header_text";      // "23 min · 12 km · 20:45 ETA"
     private static final String VIEW_TITLE = "title";             // "450 m"
     private static final String VIEW_ICON = "right_icon";         // manoeuvre arrow
 
-    // Maps separates ETE / distance / ETA with a middle dot
-    private static final String HEADER_SEPARATOR = "·";
-    private static final String ETA_SUFFIX = "ETA";
+    // An instruction is a sentence; a distance or a clock is not. Used to tell them apart when we
+    // are down to guessing.
+    private static final int MIN_INSTRUCTION_LENGTH = 8;
+    // Below this an ImageView is a status glyph rather than the manoeuvre arrow
+    private static final int MIN_ICON_SIZE = 16;
 
     private final Context context;
     private final Context mapsContext;
     private final Notification notification;
     private final NavigationData navigationData;
+
+    // Which strategy supplied what, logged when parsing goes wrong
+    private final List<String> sources = new ArrayList<>();
+
+    // True once we managed to split an instruction into road plus description
+    private boolean instructionStructured = false;
 
     public GMapsNavigationParser(Context context, StatusBarNotification sbn)
             throws android.content.pm.PackageManager.NameNotFoundException {
@@ -66,59 +82,83 @@ public class GMapsNavigationParser {
 
     /**
      * @return the parsed data, or a NavigationData whose isEmpty() is true when nothing usable
-     *         could be extracted.
+     *         could be extracted by any strategy.
      */
     public NavigationData parse() {
-        // The collapsed and expanded layouts do not always carry the same fields, so parse both
-        // and let the second pass fill in whatever the first one missed.
-        RemoteViews normalContent = getContentView(false);
-        if (normalContent != null)
-            parseRemoteView(normalContent);
+        parseFromExtras();
+        parseFromRemoteViews();
 
-        RemoteViews bestContent = getContentView(true);
-        if (bestContent != null && bestContent != normalContent)
-            parseRemoteView(bestContent);
+        // Maps is not giving a manoeuvre: no styled instruction, no distance and no arrow. That is
+        // what "Rerouting..." and similar status lines look like, in any language.
+        navigationData.setRerouting(!instructionStructured
+                && navigationData.getDistanceToNext().isEmpty()
+                && navigationData.getIconHash().isEmpty());
+
+        if (navigationData.isEmpty())
+            Logger.warn("GMapsNavigationParser no strategy produced data, tried: {}", sources);
+        else
+            Logger.debug("GMapsNavigationParser sources: {}", sources);
 
         return navigationData;
     }
 
-    private RemoteViews getContentView(boolean preferBig) {
+    /*
+     * Strategy 1: the notification's own extras
+     */
+
+    private void parseFromExtras() {
+        final Bundle extras = notification.extras;
+        if (extras == null)
+            return;
+
         try {
-            Notification.Builder builder = Notification.Builder.recoverBuilder(context, notification);
-
-            if (preferBig) {
-                RemoteViews big = builder.createBigContentView();
-                if (big != null)
-                    return big;
-            }
-
-            return builder.createContentView();
+            // Read as CharSequence so the style spans that separate road from description survive
+            applyInstruction(extras.getCharSequence(Notification.EXTRA_TEXT), "extras.text");
+            applyDistanceToNext(text(extras.getCharSequence(Notification.EXTRA_TITLE)), "extras.title");
+            applySummary(text(extras.getCharSequence(Notification.EXTRA_SUB_TEXT)), "extras.subText");
+            applyIcon(largeIconBitmap(), "extras.largeIcon");
 
         } catch (Exception e) {
-            Logger.error("GMapsNavigationParser getContentView exception: " + e.getMessage());
-            return null;
+            Logger.error("GMapsNavigationParser parseFromExtras exception: " + e.getMessage());
         }
     }
 
-    private ViewGroup inflate(RemoteViews remoteViews) {
-        LayoutInflater layoutInflater =
-                (LayoutInflater) mapsContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        if (layoutInflater == null)
-            return null;
-
-        View inflated = layoutInflater.inflate(remoteViews.getLayoutId(), null);
-        if (!(inflated instanceof ViewGroup))
-            return null;
-
-        ViewGroup viewGroup = (ViewGroup) inflated;
-        // reapply() replays the RemoteViews actions onto the real views, which is what actually
-        // puts the current navigation text into them
-        remoteViews.reapply(mapsContext, viewGroup);
-
-        return viewGroup;
+    private Bitmap largeIconBitmap() {
+        try {
+            // getLargeIcon() is the modern accessor; it is what the template renders as right_icon
+            if (notification.getLargeIcon() != null) {
+                final Drawable drawable = notification.getLargeIcon().loadDrawable(context);
+                if (drawable instanceof BitmapDrawable)
+                    return ((BitmapDrawable) drawable).getBitmap();
+            }
+        } catch (Exception e) {
+            Logger.error("GMapsNavigationParser largeIconBitmap exception: " + e.getMessage());
+        }
+        return null;
     }
 
-    private void parseRemoteView(RemoteViews remoteViews) {
+    /*
+     * Strategy 2 and 3: the notification's RemoteViews
+     */
+
+    private void parseFromRemoteViews() {
+        if (isComplete())
+            return;
+
+        // The collapsed and expanded layouts do not always carry the same fields, so walk both
+        final RemoteViews normalContent = getContentView(false);
+        final RemoteViews bestContent = getContentView(true);
+
+        parseViewTree(normalContent);
+
+        if (bestContent != null && bestContent != normalContent)
+            parseViewTree(bestContent);
+    }
+
+    private void parseViewTree(RemoteViews remoteViews) {
+        if (remoteViews == null || isComplete())
+            return;
+
         final ViewGroup group;
         try {
             group = inflate(remoteViews);
@@ -132,76 +172,177 @@ public class GMapsNavigationParser {
             return;
         }
 
-        final TextView instructionText = (TextView) findChildByName(group, VIEW_INSTRUCTION, TextView.class);
-        final TextView headerText = (TextView) findChildByName(group, VIEW_HEADER, TextView.class);
-        final TextView titleText = (TextView) findChildByName(group, VIEW_TITLE, TextView.class);
-        final ImageView rightIcon = (ImageView) findChildByName(group, VIEW_ICON, ImageView.class);
-
-        parseHeader(headerText);
-        parseDistanceToNext(titleText);
-        parseInstruction(instructionText);
-        parseIcon(rightIcon);
+        parseByViewId(group);
+        parseByShape(group);
     }
 
-    /** "23 min · 12 km · 20:45 ETA" -> ete / totalDistance / eta */
-    private void parseHeader(TextView headerText) {
-        if (headerText == null || headerText.getText() == null)
-            return;
-
-        final String[] parts = headerText.getText().toString().split(HEADER_SEPARATOR);
-        if (parts.length != 3)
-            return;
-
-        navigationData.setEte(parts[0].trim());
-        navigationData.setTotalDistance(parts[1].trim());
-
-        String eta = parts[2].trim();
-        if (eta.endsWith(ETA_SUFFIX))
-            eta = eta.substring(0, eta.length() - ETA_SUFFIX.length()).trim();
-        navigationData.setEta(eta);
-    }
-
-    /** "450 m" */
-    private void parseDistanceToNext(TextView titleText) {
-        if (titleText == null || titleText.getText() == null)
-            return;
-
-        final String distance = titleText.getText().toString().trim();
-        if (!distance.isEmpty())
-            navigationData.setDistanceToNext(distance);
+    /** Strategy 2: pick the views the AOSP notification template is known to use. */
+    private void parseByViewId(ViewGroup group) {
+        applyInstruction(textOf(findChildByName(group, VIEW_INSTRUCTION, TextView.class)), "view.text");
+        applyDistanceToNext(text(textOf(findChildByName(group, VIEW_TITLE, TextView.class))), "view.title");
+        applySummary(text(textOf(findChildByName(group, VIEW_HEADER, TextView.class))), "view.header_text");
+        applyIcon(bitmapOf(findChildByName(group, VIEW_ICON, ImageView.class)), "view.right_icon");
     }
 
     /**
-     * The instruction is a Spanned where the road name is BOLD. Everything before the first bold
-     * run plus the bold run itself is the road; a second bold run (eg. "towards …") starts the
-     * description.
+     * Strategy 3: forget the ids, look at what the values themselves look like.
+     *
+     * Ordering matters. The summary is claimed first because it is the only text carrying a
+     * separator, then the distance because it has a recognisable unit, and only what is left can be
+     * the instruction.
      */
-    private void parseInstruction(TextView instructionText) {
-        if (instructionText == null || instructionText.getText() == null)
+    private void parseByShape(ViewGroup group) {
+        if (isComplete())
             return;
 
-        final CharSequence text = instructionText.getText();
+        final List<TextView> textViews = new ArrayList<>();
+        final List<ImageView> imageViews = new ArrayList<>();
+        collectViews(group, textViews, imageViews);
 
-        if (!(text instanceof Spanned)) {
-            // Not styled: Maps is showing a plain status such as "Rerouting…"
-            final String plain = text.toString().trim();
-            if (!plain.isEmpty()) {
-                navigationData.setNextRoad(plain);
-                navigationData.setRerouting(true);
-            }
+        for (TextView textView : textViews) {
+            final String value = text(textOf(textView));
+            if (NavigationTextParser.looksLikeSummary(value))
+                applySummary(value, "shape.summary");
+        }
+
+        for (TextView textView : textViews) {
+            final String value = text(textOf(textView));
+            if (NavigationTextParser.isDistance(value))
+                applyDistanceToNext(value, "shape.distance");
+        }
+
+        // The instruction is the longest remaining text, preferring one that carries style spans
+        CharSequence best = null;
+        for (TextView textView : textViews) {
+            final CharSequence candidate = textOf(textView);
+            if (!isInstructionCandidate(candidate))
+                continue;
+
+            if (best == null
+                    || (candidate instanceof Spanned && !(best instanceof Spanned))
+                    || candidate.length() > best.length())
+                best = candidate;
+        }
+        applyInstruction(best, "shape.instruction");
+
+        // The manoeuvre arrow is the biggest roughly-square bitmap on the notification
+        Bitmap bestIcon = null;
+        for (ImageView imageView : imageViews) {
+            final Bitmap candidate = bitmapOf(imageView);
+            if (!isIconCandidate(candidate))
+                continue;
+
+            if (bestIcon == null || area(candidate) > area(bestIcon))
+                bestIcon = candidate;
+        }
+        applyIcon(bestIcon, "shape.icon");
+    }
+
+    private boolean isInstructionCandidate(CharSequence candidate) {
+        final String value = text(candidate);
+
+        return value.length() >= MIN_INSTRUCTION_LENGTH
+                && !NavigationTextParser.isDistance(value)
+                && !NavigationTextParser.looksLikeSummary(value)
+                && !value.equals(navigationData.getDistanceToNext());
+    }
+
+    private boolean isIconCandidate(Bitmap candidate) {
+        if (candidate == null || candidate.isRecycled())
+            return false;
+
+        if (candidate.getWidth() < MIN_ICON_SIZE || candidate.getHeight() < MIN_ICON_SIZE)
+            return false;
+
+        // Manoeuvre arrows are square; a wide banner is something else
+        final float ratio = (float) candidate.getWidth() / candidate.getHeight();
+        return ratio > 0.5f && ratio < 2.0f;
+    }
+
+    private static int area(Bitmap bitmap) {
+        return bitmap.getWidth() * bitmap.getHeight();
+    }
+
+    /*
+     * Field setters, each a no-op once the field has a value, so earlier strategies win
+     */
+
+    private void applyDistanceToNext(String value, String source) {
+        if (!navigationData.getDistanceToNext().isEmpty() || value.isEmpty())
+            return;
+
+        navigationData.setDistanceToNext(value);
+        sources.add("distance=" + source);
+    }
+
+    private void applySummary(String value, String source) {
+        if (value.isEmpty())
+            return;
+
+        final boolean haveSummary = !navigationData.getEta().isEmpty()
+                || !navigationData.getEte().isEmpty()
+                || !navigationData.getTotalDistance().isEmpty();
+        if (haveSummary)
+            return;
+
+        final NavigationTextParser.Summary summary = NavigationTextParser.parseSummary(value);
+        if (summary.isEmpty())
+            return;
+
+        navigationData.setEte(summary.ete);
+        navigationData.setTotalDistance(summary.distance);
+        navigationData.setEta(summary.eta);
+        sources.add("summary=" + source);
+    }
+
+    private void applyIcon(Bitmap bitmap, String source) {
+        if (!navigationData.getIconHash().isEmpty() || bitmap == null || bitmap.isRecycled())
+            return;
+
+        final byte[] png = NavigationIconHelper.toPng(bitmap);
+        if (png.length == 0)
+            return;
+
+        navigationData.setIcon(png);
+        navigationData.setIconHash(NavigationIconHelper.hash(png));
+        sources.add("icon=" + source);
+    }
+
+    /**
+     * The instruction is a Spanned where the road name is bold. Everything up to the first bold run
+     * is the road; a second bold run ("towards …") starts the description.
+     *
+     * A plain String means Maps is showing a status such as "Rerouting…" instead, or that the
+     * source we read from dropped the spans, in which case the whole line becomes the road.
+     */
+    private void applyInstruction(CharSequence instruction, String source) {
+        if (!navigationData.getNextRoad().isEmpty() || instruction == null)
+            return;
+
+        final String plain = text(instruction);
+        if (plain.isEmpty())
+            return;
+
+        // No spans: either a status line, or a source that dropped the styling. Either way the
+        // whole line is the best we can show.
+        if (!(instruction instanceof Spanned)) {
+            navigationData.setNextRoad(plain);
+            sources.add("instruction(plain)=" + source);
             return;
         }
 
         final List<SpanSplitter.Segment> segments =
-                SpanSplitter.splitByStyleSpan((Spanned) text, Typeface.NORMAL, 2);
+                SpanSplitter.splitByStyleSpan((Spanned) instruction, Typeface.NORMAL, 2);
 
-        if (segments.isEmpty())
+        if (segments.isEmpty()) {
+            navigationData.setNextRoad(plain);
+            sources.add("instruction(unsplit)=" + source);
             return;
+        }
 
         final StringBuilder road = new StringBuilder(segments.get(0).text);
         final StringBuilder description = new StringBuilder();
 
-        // Look for a second "key" segment; everything from there on is the description
         int descriptionStart = -1;
         for (int i = 1; i < segments.size(); i++) {
             final SpanSplitter.Segment segment = segments.get(i);
@@ -226,26 +367,73 @@ public class GMapsNavigationParser {
 
         navigationData.setNextRoad(road.toString().trim());
         navigationData.setNextRoadDescription(description.toString().trim());
-        navigationData.setRerouting(false);
+        instructionStructured = true;
+        sources.add("instruction=" + source);
     }
 
-    private void parseIcon(ImageView rightIcon) {
-        if (rightIcon == null)
-            return;
-
-        final Drawable drawable = rightIcon.getDrawable();
-        if (!(drawable instanceof BitmapDrawable))
-            return;
-
-        final Bitmap bitmap = ((BitmapDrawable) drawable).getBitmap();
-        if (bitmap == null || bitmap.isRecycled())
-            return;
-
-        navigationData.setIcon(NavigationIconHelper.toPng(bitmap));
-        navigationData.setIconHash(NavigationIconHelper.hash(navigationData.getIcon()));
+    /** Everything worth having is filled in, so later strategies can be skipped entirely. */
+    private boolean isComplete() {
+        return !navigationData.getNextRoad().isEmpty()
+                && !navigationData.getDistanceToNext().isEmpty()
+                && !navigationData.getEta().isEmpty()
+                && !navigationData.getIconHash().isEmpty();
     }
 
-    /** Depth-first search for a view whose resource entry name matches, as seen by Maps' own resources. */
+    /*
+     * View plumbing
+     */
+
+    private RemoteViews getContentView(boolean preferBig) {
+        try {
+            final Notification.Builder builder = Notification.Builder.recoverBuilder(context, notification);
+
+            if (preferBig) {
+                final RemoteViews big = builder.createBigContentView();
+                if (big != null)
+                    return big;
+            }
+
+            return builder.createContentView();
+
+        } catch (Exception e) {
+            Logger.error("GMapsNavigationParser getContentView exception: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private ViewGroup inflate(RemoteViews remoteViews) {
+        final LayoutInflater layoutInflater =
+                (LayoutInflater) mapsContext.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        if (layoutInflater == null)
+            return null;
+
+        final View inflated = layoutInflater.inflate(remoteViews.getLayoutId(), null);
+        if (!(inflated instanceof ViewGroup))
+            return null;
+
+        final ViewGroup viewGroup = (ViewGroup) inflated;
+        // reapply() replays the RemoteViews actions onto the real views, which is what actually
+        // puts the current navigation text into them
+        remoteViews.reapply(mapsContext, viewGroup);
+
+        return viewGroup;
+    }
+
+    private void collectViews(ViewGroup group, List<TextView> textViews, List<ImageView> imageViews) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            final View child = group.getChildAt(i);
+
+            if (child instanceof TextView && child.getVisibility() == View.VISIBLE)
+                textViews.add((TextView) child);
+            else if (child instanceof ImageView && child.getVisibility() == View.VISIBLE)
+                imageViews.add((ImageView) child);
+
+            if (child instanceof ViewGroup)
+                collectViews((ViewGroup) child, textViews, imageViews);
+        }
+    }
+
+    /** Depth-first search for a view whose resource entry name matches. */
     private View findChildByName(ViewGroup group, String name, Class<?> type) {
         for (int i = 0; i < group.getChildCount(); i++) {
             final View child = group.getChildAt(i);
@@ -267,8 +455,24 @@ public class GMapsNavigationParser {
             if (view.getId() > 0)
                 return mapsContext.getResources().getResourceEntryName(view.getId());
         } catch (Exception ignored) {
-            // View ids that do not belong to Maps' resources simply have no entry name
+            // Ids that belong to no resource simply have no entry name
         }
         return "";
+    }
+
+    private static CharSequence textOf(View view) {
+        return (view instanceof TextView) ? ((TextView) view).getText() : null;
+    }
+
+    private static Bitmap bitmapOf(View view) {
+        if (!(view instanceof ImageView))
+            return null;
+
+        final Drawable drawable = ((ImageView) view).getDrawable();
+        return (drawable instanceof BitmapDrawable) ? ((BitmapDrawable) drawable).getBitmap() : null;
+    }
+
+    private static String text(CharSequence charSequence) {
+        return (charSequence == null) ? "" : charSequence.toString().trim();
     }
 }
