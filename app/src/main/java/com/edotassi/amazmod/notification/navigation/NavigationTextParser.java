@@ -344,4 +344,35 @@ public class NavigationTextParser {
 
         return startOk && endOk;
     }
+
+    /**
+     * Removes a leading distance from an instruction.
+     *
+     * Once the phone is actually moving, Maps writes the notification title as
+     * "190 m \u00b7 Putar balik" - the distance and the manoeuvre in one string. The distance is
+     * already read separately from shortCriticalText, so leaving it here would show it twice:
+     * once in large type and again inside the road name.
+     *
+     * Only a leading part that really parses as a distance is removed, so an instruction that
+     * happens to contain a separator survives intact.
+     */
+    public static String stripLeadingDistance(String instruction) {
+        if (instruction == null)
+            return "";
+
+        final String text = normalize(instruction);
+        final List<String> parts = split(text);
+
+        if (parts.size() < 2 || !isDistance(parts.get(0)))
+            return text;
+
+        final StringBuilder rest = new StringBuilder();
+        for (int i = 1; i < parts.size(); i++) {
+            if (rest.length() > 0)
+                rest.append(" \u00b7 ");
+            rest.append(parts.get(i));
+        }
+
+        return rest.toString();
+    }
 }

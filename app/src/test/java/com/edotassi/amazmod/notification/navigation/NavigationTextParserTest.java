@@ -257,4 +257,28 @@ public class NavigationTextParserTest {
         assertEquals(-1, NavigationTextParser.bearingOf("Jl. Baratang"));
         assertEquals(-1, NavigationTextParser.bearingOf("Easterly Road"));
     }
+
+    @Test
+    public void stripsTheDistanceMapsPutsInTheTitleWhileMoving() {
+        // Exactly what the phone produced once the mock route had it moving
+        assertEquals("Putar balik",
+                NavigationTextParser.stripLeadingDistance("190 m \u00b7  Putar balik "));
+        assertEquals("Belok kiri",
+                NavigationTextParser.stripLeadingDistance("1,2 km \u00b7 Belok kiri"));
+    }
+
+    @Test
+    public void leavesInstructionsWithoutALeadingDistanceAlone() {
+        assertEquals("Ke arah timur",
+                NavigationTextParser.stripLeadingDistance("Ke arah timur"));
+        assertEquals("Belok kiri", NavigationTextParser.stripLeadingDistance("Belok kiri"));
+        assertEquals("", NavigationTextParser.stripLeadingDistance(null));
+    }
+
+    @Test
+    public void keepsASeparatorThatIsNotADistance() {
+        // Only a genuine leading distance is removed, never an arbitrary first segment
+        assertEquals("Jl. Sudirman \u00b7 arah HI",
+                NavigationTextParser.stripLeadingDistance("Jl. Sudirman \u00b7 arah HI"));
+    }
 }

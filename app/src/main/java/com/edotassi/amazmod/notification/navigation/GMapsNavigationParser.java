@@ -421,9 +421,16 @@ public class GMapsNavigationParser {
         if (!navigationData.getNextRoad().isEmpty() || instruction == null)
             return;
 
-        final String plain = text(instruction);
+        final String plain = NavigationTextParser.stripLeadingDistance(text(instruction));
         if (plain.isEmpty())
             return;
+
+        // A title carrying its own distance has no style spans worth splitting, so take it whole
+        if (!plain.equals(text(instruction))) {
+            navigationData.setNextRoad(plain);
+            sources.add("instruction(distance-stripped)=" + source);
+            return;
+        }
 
         // No spans: either a status line, or a source that dropped the styling. Either way the
         // whole line is the best we can show.
