@@ -6,8 +6,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.amazmod.service.R;
@@ -18,6 +20,10 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 import org.tinylog.Logger;
+
+import android.text.format.DateFormat;
+
+import java.util.Date;
 
 import amazmod.com.transport.data.NavigationData;
 
@@ -34,6 +40,9 @@ public class NavigationActivity extends Activity {
     private static final long SILENCE_WARNING = 20000L;
 
     private ImageView iconImage;
+    private FrameLayout iconHolder;
+    private ProgressBar progressBar;
+    private TextView clockText;
     private TextView distanceText, roadText, roadDescriptionText, statusText;
     private TextView remainingValue, durationValue, arrivalValue;
     private TextView remainingLabel, durationLabel, arrivalLabel;
@@ -52,6 +61,9 @@ public class NavigationActivity extends Activity {
         setContentView(R.layout.activity_navigation);
 
         iconImage = findViewById(R.id.activity_navigation_icon);
+        iconHolder = findViewById(R.id.activity_navigation_icon_holder);
+        progressBar = findViewById(R.id.activity_navigation_progress);
+        clockText = findViewById(R.id.activity_navigation_clock);
         distanceText = findViewById(R.id.activity_navigation_distance);
         roadText = findViewById(R.id.activity_navigation_road);
         roadDescriptionText = findViewById(R.id.activity_navigation_road_description);
@@ -117,10 +129,11 @@ public class NavigationActivity extends Activity {
         }
 
         applyKeepScreenOn(data);
+        updateClock();
 
         // Maps is recalculating: it gives us a status line instead of a real instruction
         if (data.isRerouting()) {
-            iconImage.setVisibility(View.GONE);
+            iconHolder.setVisibility(View.GONE);
             distanceText.setText("");
             roadText.setText(data.getNextRoad().isEmpty()
                     ? getString(R.string.navigation_rerouting) : data.getNextRoad());
@@ -133,9 +146,9 @@ public class NavigationActivity extends Activity {
         final Bitmap icon = NavigationStore.getCurrentIcon();
         if (icon != null && !icon.isRecycled()) {
             iconImage.setImageBitmap(icon);
-            iconImage.setVisibility(View.VISIBLE);
+            iconHolder.setVisibility(View.VISIBLE);
         } else {
-            iconImage.setVisibility(View.GONE);
+            iconHolder.setVisibility(View.GONE);
         }
 
         distanceText.setText(data.getDistanceToNext());
@@ -174,6 +187,23 @@ public class NavigationActivity extends Activity {
         remainingValue.setText(orDash(data.getTotalDistance()));
         durationValue.setText(orDash(data.getEte()));
         arrivalValue.setText(orDash(data.getEta()));
+
+        // Hidden rather than shown empty: a bar stuck at zero would read as "no progress made"
+        final int percent = data.getProgressPercent();
+        if (percent < 0) {
+            progressBar.setVisibility(View.GONE);
+        } else {
+            progressBar.setProgress(Math.min(100, percent));
+            progressBar.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     * The watch face is not visible while this screen is up, so it shows the time itself. Refreshed
+     * on every navigation update and on the stale tick, which is far more often than a minute.
+     */
+    private void updateClock() {
+        clockText.setText(DateFormat.getTimeFormat(this).format(new Date()));
     }
 
     private String orDash(String value) {
@@ -197,6 +227,8 @@ public class NavigationActivity extends Activity {
                 }
 
                 // Warn before giving up, so a brief Bluetooth hiccup does not look like fresh data
+                updateClock();
+
                 final long silence = System.currentTimeMillis() - NavigationStore.getLastUpdate();
                 statusText.setVisibility(silence > SILENCE_WARNING ? View.VISIBLE : View.GONE);
                 statusText.setText(R.string.navigation_waiting);

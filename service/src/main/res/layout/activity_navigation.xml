@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?><!--
     Navigation screen for the round 360x360 Verge/Stratos display.
 
-    Read at a glance while riding, so the next manoeuvre dominates and the trip figures sit in a
-    labelled row underneath: each one is worth showing on its own rather than merged into a single
-    line, because "how far to the turn", "how far left" and "how long left" answer different
-    questions.
+    Read at a glance while riding, so the layout is a hierarchy rather than a list: the manoeuvre
+    dominates the middle, the trip figures sit in a labelled row underneath, and the clock and
+    route progress frame them without competing for attention.
+
+    The background is pure black on purpose. The Verge panel is AMOLED, so black pixels cost no
+    power, which matters when the screen is held on for a whole trip.
 -->
 <android.support.wearable.view.BoxInsetLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -20,25 +22,48 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingStart="26dp"
-        android:paddingEnd="26dp">
+        android:paddingStart="30dp"
+        android:paddingEnd="30dp">
 
-        <!-- Manoeuvre arrow + how far until that manoeuvre -->
+        <!-- Wall clock. Small and dim: useful, never the thing you read first. -->
+        <TextView
+            android:id="@+id/activity_navigation_clock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:letterSpacing="0.08"
+            android:maxLines="1"
+            android:textColor="@color/colorGrey"
+            android:textSize="14sp"
+            tools:text="05:52" />
+
+        <!-- Manoeuvre arrow on a disc + how far until that manoeuvre -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <ImageView
-                android:id="@+id/activity_navigation_icon"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:layout_marginEnd="10dp"
-                android:scaleType="fitCenter"
+            <FrameLayout
+                android:id="@+id/activity_navigation_icon_holder"
+                android:layout_width="58dp"
+                android:layout_height="58dp"
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/nav_icon_circle"
                 android:visibility="gone"
-                tools:src="@drawable/ic_navigation_white_24"
-                tools:visibility="visible" />
+                tools:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/activity_navigation_icon"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_gravity="center"
+                    android:scaleType="fitCenter"
+                    tools:src="@drawable/ic_navigation_white_24" />
+
+            </FrameLayout>
 
             <TextView
                 android:id="@+id/activity_navigation_distance"
@@ -47,7 +72,7 @@
                 android:includeFontPadding="false"
                 android:maxLines="1"
                 android:textColor="@color/colorBlue"
-                android:textSize="36sp"
+                android:textSize="38sp"
                 android:textStyle="bold"
                 tools:text="450 m" />
 
@@ -81,13 +106,19 @@
             tools:text="arah Bundaran HI"
             tools:visibility="visible" />
 
-        <View
+        <!-- How much of the route is behind us -->
+        <ProgressBar
+            android:id="@+id/activity_navigation_progress"
+            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="8dp"
-            android:background="@color/colorGrey"
-            android:alpha="0.35" />
+            android:layout_height="4dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="10dp"
+            android:max="100"
+            android:progressDrawable="@drawable/nav_progress"
+            android:visibility="gone"
+            tools:progress="35"
+            tools:visibility="visible" />
 
         <!-- Trip figures, each labelled so none of them has to be guessed at -->
         <LinearLayout
@@ -121,8 +152,10 @@
                     android:gravity="center"
                     android:maxLines="1"
                     android:textAllCaps="true"
+                    android:layout_marginTop="2dp"
+                    android:letterSpacing="0.06"
                     android:textColor="@color/colorGrey"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     tools:text="@string/navigation_label_remaining" />
 
             </LinearLayout>
@@ -153,8 +186,10 @@
                     android:gravity="center"
                     android:maxLines="1"
                     android:textAllCaps="true"
+                    android:layout_marginTop="2dp"
+                    android:letterSpacing="0.06"
                     android:textColor="@color/colorGrey"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     tools:text="@string/navigation_label_duration" />
 
             </LinearLayout>
@@ -172,8 +207,9 @@
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
                     android:gravity="center"
+                    android:includeFontPadding="false"
                     android:maxLines="1"
-                    android:textColor="@color/white"
+                    android:textColor="@color/colorGreen"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     tools:text="20.45" />
@@ -185,8 +221,10 @@
                     android:gravity="center"
                     android:maxLines="1"
                     android:textAllCaps="true"
+                    android:layout_marginTop="2dp"
+                    android:letterSpacing="0.06"
                     android:textColor="@color/colorGrey"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     tools:text="@string/navigation_label_arrival" />
 
             </LinearLayout>

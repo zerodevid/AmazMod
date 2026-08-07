@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    Disc behind the manoeuvre arrow. Gives the arrow a defined edge against the black background
+    so it reads as an icon rather than a floating shape.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/bgRound" />
+</shape>
