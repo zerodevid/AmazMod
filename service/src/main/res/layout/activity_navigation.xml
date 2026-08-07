@@ -5,6 +5,10 @@
     dominates the middle, the trip figures sit in a labelled row underneath, and the clock and
     route progress frame them without competing for attention.
 
+    Height is the binding constraint: the panel is 360px at 240dpi, so there are only 240dp to
+    work with. Everything below is sized to fit inside that with room to spare, because the content
+    is centred and an overflow would clip the top and bottom rows rather than scroll.
+
     The background is pure black on purpose. The Verge panel is AMOLED, so black pixels cost no
     power, which matters when the screen is held on for a whole trip.
 -->
@@ -22,21 +26,21 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingStart="30dp"
-        android:paddingEnd="30dp">
+        android:paddingStart="26dp"
+        android:paddingEnd="26dp">
 
         <!-- Wall clock. Small and dim: useful, never the thing you read first. -->
         <TextView
             android:id="@+id/activity_navigation_clock"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="6dp"
+            android:layout_marginBottom="4dp"
             android:gravity="center"
             android:includeFontPadding="false"
             android:letterSpacing="0.08"
             android:maxLines="1"
             android:textColor="@color/colorGrey"
-            android:textSize="14sp"
+            android:textSize="13sp"
             tools:text="05:52" />
 
         <!-- Manoeuvre arrow on a disc + how far until that manoeuvre -->
@@ -48,17 +52,17 @@
 
             <FrameLayout
                 android:id="@+id/activity_navigation_icon_holder"
-                android:layout_width="58dp"
-                android:layout_height="58dp"
-                android:layout_marginEnd="12dp"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_marginEnd="10dp"
                 android:background="@drawable/nav_icon_circle"
                 android:visibility="gone"
                 tools:visibility="visible">
 
                 <ImageView
                     android:id="@+id/activity_navigation_icon"
-                    android:layout_width="38dp"
-                    android:layout_height="38dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:layout_gravity="center"
                     android:scaleType="fitCenter"
                     tools:src="@drawable/ic_navigation_white_24" />
@@ -72,7 +76,7 @@
                 android:includeFontPadding="false"
                 android:maxLines="1"
                 android:textColor="@color/colorBlue"
-                android:textSize="38sp"
+                android:textSize="33sp"
                 android:textStyle="bold"
                 tools:text="450 m" />
 
@@ -112,8 +116,8 @@
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
             android:layout_height="4dp"
-            android:layout_marginTop="14dp"
-            android:layout_marginBottom="10dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="8dp"
             android:max="100"
             android:progressDrawable="@drawable/nav_progress"
             android:visibility="gone"
@@ -141,7 +145,7 @@
                     android:gravity="center"
                     android:maxLines="1"
                     android:textColor="@color/white"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     tools:text="12 km" />
 
@@ -175,7 +179,7 @@
                     android:gravity="center"
                     android:maxLines="1"
                     android:textColor="@color/white"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     tools:text="23 mnt" />
 
@@ -210,7 +214,7 @@
                     android:includeFontPadding="false"
                     android:maxLines="1"
                     android:textColor="@color/colorGreen"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     tools:text="20.45" />
 

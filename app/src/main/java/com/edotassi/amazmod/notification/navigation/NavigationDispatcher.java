@@ -9,8 +9,8 @@ import com.pixplicity.easyprefs.library.Prefs;
 
 import org.tinylog.Logger;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import amazmod.com.transport.Constants;
 import amazmod.com.transport.Transport;
@@ -26,9 +26,20 @@ import amazmod.com.transport.data.NavigationData;
  */
 public class NavigationDispatcher {
 
-    // Arrows already delivered to the watch this session, most recently used last
+    /**
+     * How long an arrow is assumed to still be cached on the watch.
+     *
+     * Sending each arrow once and then only its hash saves real bandwidth, but it quietly assumes
+     * the watch keeps its cache forever. It does not: the watch cache lives in memory and is lost
+     * whenever the watch service restarts, and the phone has no way to hear about that. Resending
+     * periodically costs about a kilobyte a minute and makes a lost arrow heal itself instead of
+     * staying blank for the rest of the trip.
+     */
+    private static final long ICON_REFRESH_INTERVAL = 60000L;
+
+    // Arrows already delivered to the watch this session, with when they were last sent
     private static final int ICON_CACHE_SIZE = 24;
-    private final Set<String> sentIcons = new LinkedHashSet<>();
+    private final Map<String, Long> sentIcons = new LinkedHashMap<>();
 
     private String lastSignature = "";
     private String lastRoad = "";
@@ -75,11 +86,13 @@ public class NavigationDispatcher {
             return true;
         }
 
-        // Only pay for the arrow bitmap when the watch has not seen it yet
+        // Only pay for the arrow bitmap when the watch may not have it
         final String iconHash = navigationData.getIconHash();
-        if (!iconHash.isEmpty() && sentIcons.contains(iconHash)) {
+        final boolean iconIsFresh = !iconHash.isEmpty()
+                && sentIcons.containsKey(iconHash)
+                && (now - sentIcons.get(iconHash)) < ICON_REFRESH_INTERVAL;
+        if (iconIsFresh)
             navigationData.setIcon(new byte[0]);
-        }
 
         // Vibrate and wake the screen when the manoeuvre itself changes, not on every distance tick
         final boolean roadChanged = !navigationData.getNextRoad().equals(lastRoad);
@@ -101,7 +114,7 @@ public class NavigationDispatcher {
         Logger.debug("NavigationDispatcher sent {}", navigationData);
 
         if (!iconHash.isEmpty() && navigationData.getIcon().length > 0)
-            rememberIcon(iconHash);
+            rememberIcon(iconHash, now);
 
         lastSignature = signature;
         lastRoad = navigationData.getNextRoad();
@@ -124,18 +137,19 @@ public class NavigationDispatcher {
         lastSignature = "";
         lastRoad = "";
         lastSentTime = 0;
-        // Icons stay cached: the watch keeps them too, and the next trip reuses the same arrows
+        // A new trip starts with no assumptions about what the watch still holds
+        sentIcons.clear();
     }
 
     public boolean isNavigating() {
         return navigating;
     }
 
-    private void rememberIcon(String iconHash) {
-        if (sentIcons.size() >= ICON_CACHE_SIZE) {
-            final String oldest = sentIcons.iterator().next();
+    private void rememberIcon(String iconHash, long sentAt) {
+        if (sentIcons.size() >= ICON_CACHE_SIZE && !sentIcons.containsKey(iconHash)) {
+            final String oldest = sentIcons.keySet().iterator().next();
             sentIcons.remove(oldest);
         }
-        sentIcons.add(iconHash);
+        sentIcons.put(iconHash, sentAt);
     }
 }
