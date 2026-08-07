@@ -36,7 +36,10 @@ import com.amazmod.service.events.HourlyChime;
 import com.amazmod.service.events.NightscoutDataEvent;
 import com.amazmod.service.events.ReplyNotificationEvent;
 import com.amazmod.service.events.SilenceApplicationEvent;
+import com.amazmod.service.events.NavigationUpdateEvent;
 import com.amazmod.service.events.incoming.Brightness;
+import com.amazmod.service.events.incoming.NavigationEvent;
+import com.amazmod.service.events.incoming.NavigationStopEvent;
 import com.amazmod.service.events.incoming.DeleteNotificationEvent;
 import com.amazmod.service.events.incoming.EnableLowPower;
 import com.amazmod.service.events.incoming.IncomingNotificationEvent;
@@ -59,9 +62,11 @@ import com.amazmod.service.settings.SettingsManager;
 import com.amazmod.service.sleep.sleepService;
 import com.amazmod.service.springboard.WidgetSettings;
 import com.amazmod.service.support.BatteryJobService;
+import com.amazmod.service.support.NavigationStore;
 import com.amazmod.service.support.NotificationStore;
 import com.amazmod.service.ui.AlertsActivity;
 import com.amazmod.service.ui.ConfirmationWearActivity;
+import com.amazmod.service.ui.NavigationActivity;
 import com.amazmod.service.ui.fragments.WearMenuFragment;
 import com.amazmod.service.util.DeviceUtil;
 import com.amazmod.service.util.ExecCommand;
@@ -107,6 +112,7 @@ import amazmod.com.transport.data.BrightnessData;
 import amazmod.com.transport.data.DirectoryData;
 import amazmod.com.transport.data.FileData;
 import amazmod.com.transport.data.FileUploadData;
+import amazmod.com.transport.data.NavigationData;
 import amazmod.com.transport.data.NotificationData;
 import amazmod.com.transport.data.RequestDeleteFileData;
 import amazmod.com.transport.data.RequestDirectoryData;
@@ -461,6 +467,8 @@ public class MainService extends Service implements Transporter.DataListener {
         put(Transport.WATCHFACE_DATA, Watchface.class);
         put(Transport.REQUEST_WIDGETS, RequestWidgets.class);
         put(Transport.DELETE_NOTIFICATION, DeleteNotificationEvent.class);
+        put(Transport.NAVIGATION_DATA, NavigationEvent.class);
+        put(Transport.NAVIGATION_STOP, NavigationStopEvent.class);
     }};
 
     @Override
@@ -1063,6 +1071,59 @@ public class MainService extends Service implements Transporter.DataListener {
         else {
             DeviceUtil.systemPutInt(context, Settings.System.SCREEN_BRIGHTNESS_MODE, 0);
             DeviceUtil.systemPutInt(context, Settings.System.SCREEN_BRIGHTNESS, brightnessLevel);
+        }
+    }
+
+    // Turn-by-turn navigation data pushed by Google Maps on the phone
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void navigation(NavigationEvent navigationEvent) {
+        final NavigationData navigationData = NavigationData.fromDataBundle(navigationEvent.getDataBundle());
+        Logger.debug("MainService navigation: " + navigationData);
+
+        final boolean wasNavigating = NavigationStore.isNavigating();
+        NavigationStore.update(navigationData);
+
+        if (navigationData.getVibration() > 0)
+            vibrate(navigationData.getVibration());
+
+        if (navigationData.isScreenOn())
+            acquireWakelock();
+
+        // Bring the navigation screen up on the first packet of a trip; later packets only refresh
+        // whatever is already on screen so we never steal focus mid-ride
+        if (!wasNavigating)
+            startNavigationActivity();
+
+        EventBus.getDefault().post(new NavigationUpdateEvent(true));
+    }
+
+    // Navigation ended on the phone
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void navigationStop(NavigationStopEvent navigationStopEvent) {
+        Logger.debug("MainService navigationStop");
+
+        NavigationStore.clear();
+        EventBus.getDefault().post(new NavigationUpdateEvent(false));
+    }
+
+    private void startNavigationActivity() {
+        try {
+            Intent intent = new Intent(context, NavigationActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK |
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            context.startActivity(intent);
+        } catch (Exception e) {
+            Logger.error("MainService startNavigationActivity exception: " + e.getMessage());
+        }
+    }
+
+    private void vibrate(int milliseconds) {
+        try {
+            Vibrator vibrator = (Vibrator) context.getSystemService(VIBRATOR_SERVICE);
+            if (vibrator != null)
+                vibrator.vibrate(milliseconds);
+        } catch (Exception e) {
+            Logger.error("MainService vibrate exception: " + e.getMessage());
         }
     }
 

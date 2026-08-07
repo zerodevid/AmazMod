@@ -106,6 +106,15 @@
             android:taskAffinity=""
             android:theme="@style/Theme.AppCompat.NoActionBar" />
         <activity
+            android:name=".ui.NavigationActivity"
+            android:allowEmbedded="true"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label=""
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.NoSwipeToDismiss" />
+        <activity
             android:name=".ui.ScreenSettingsActivity"
             android:allowEmbedded="true"
             android:exported="true"

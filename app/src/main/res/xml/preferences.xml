@@ -52,6 +52,30 @@
             android:summary="@string/pref_enable_maps_notification_summary"
             android:title="@string/pref_enable_maps_notification" />
 
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="true"
+            android:dependency="preference.enable.maps.notification"
+            android:key="preference.enable.navigation"
+            android:summary="@string/pref_enable_navigation_summary"
+            android:title="@string/pref_enable_navigation" />
+
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="true"
+            android:dependency="preference.enable.navigation"
+            android:key="preference.navigation.vibrate.on.turn"
+            android:summary="@string/pref_navigation_vibrate_on_turn_summary"
+            android:title="@string/pref_navigation_vibrate_on_turn" />
+
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="false"
+            android:dependency="preference.enable.navigation"
+            android:key="preference.navigation.screen.on"
+            android:summary="@string/pref_navigation_screen_on_summary"
+            android:title="@string/pref_navigation_screen_on" />
+
         <DropDownPreference
             app:iconSpaceReserved="false"
             android:dependency="preference.enable.notifications"

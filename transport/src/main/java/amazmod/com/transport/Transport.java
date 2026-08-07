@@ -34,6 +34,8 @@ public class Transport {
     public static final String XDRIP_DATA = "xDrip_synced_SGV_data";
     public static final String SLEEP_DATA = "sleepdata";
     public static final String TAKE_PICTURE = "take_pict";
+    public static final String NAVIGATION_DATA = "navigation_data";
+    public static final String NAVIGATION_STOP = "navigation_stop";
 
     public static final String WATCH_STATUS = "watch_status";
     public static final String BATTERY_STATUS = "battery_status";

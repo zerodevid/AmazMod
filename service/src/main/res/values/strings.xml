@@ -181,4 +181,9 @@
     <string name="alarm_dismiss">Dismiss</string>
     <string name="camera_delay">Delay</string>
     <string name="camera_shutter">Camera Shutter</string>
+    <!-- Google Maps turn-by-turn navigation -->
+    <string name="navigation_widget_name">Navigation</string>
+    <string name="navigation_idle">No navigation running</string>
+    <string name="navigation_rerouting">Rerouting…</string>
+    <string name="navigation_waiting">Waiting for phone…</string>
 </resources>

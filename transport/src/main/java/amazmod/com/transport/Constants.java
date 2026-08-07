@@ -48,6 +48,18 @@ public class Constants {
     public static final String PREF_NOTIFICATIONS_INVERTED_THEME = "preference.amazmodservice.inverted.theme";
     public static final String PREF_NOTIFICATIONS_FONT_TITLE_SIZE = "preference.amazmodservice.font.title.size";
     public static final String PREF_NOTIFICATIONS_FONT_SIZE = "preference.amazmodservice.font.size";
+
+    // Google Maps turn-by-turn navigation
+    public static final String PREF_ENABLE_NAVIGATION = "preference.enable.navigation";
+    public static final boolean PREF_DEFAULT_ENABLE_NAVIGATION = true;
+    public static final String PREF_NAVIGATION_SCREEN_ON = "preference.navigation.screen.on";
+    public static final boolean PREF_DEFAULT_NAVIGATION_SCREEN_ON = false;
+    public static final String PREF_NAVIGATION_VIBRATE_ON_TURN = "preference.navigation.vibrate.on.turn";
+    public static final boolean PREF_DEFAULT_NAVIGATION_VIBRATE_ON_TURN = true;
+    // Minimum gap between two navigation packets, keeps the BT tunnel from being flooded
+    public static final long NAVIGATION_MIN_INTERVAL = 1500L;
+    // Navigation screen closes itself when no update arrives for this long
+    public static final long NAVIGATION_STALE_TIMEOUT = 120000L;
     public static final String PREF_BATTERY_CHART = "preference.battery.chart";
     public static final String PREF_HEARTRATE_CHART = "preference.heartrate.chart";
     public static final String PREF_BATTERY_BACKGROUND_SYNC_INTERVAL = "preference.battery.background.sync.interval";

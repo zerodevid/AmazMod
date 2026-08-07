@@ -510,4 +510,11 @@ follow the system theme (beta).</string>
     <string name="searchpreference_clear_history">Clear history</string>
     <string name="searchpreference_no_results">No results</string>
     <string name="enable_sleep">Enable Sleep As Android</string>
+    <!-- Google Maps turn-by-turn navigation -->
+    <string name="pref_enable_navigation">Turn-by-turn navigation</string>
+    <string name="pref_enable_navigation_summary">Show Google Maps directions on the watch as a dedicated navigation screen instead of a plain notification</string>
+    <string name="pref_navigation_vibrate_on_turn">Vibrate on each turn</string>
+    <string name="pref_navigation_vibrate_on_turn_summary">Short vibration when the next manoeuvre changes</string>
+    <string name="pref_navigation_screen_on">Wake screen on each turn</string>
+    <string name="pref_navigation_screen_on_summary">Turn the watch screen on when the next manoeuvre changes. Uses noticeably more battery</string>
 </resources>

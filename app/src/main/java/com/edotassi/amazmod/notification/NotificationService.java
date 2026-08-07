@@ -26,6 +26,8 @@ import com.edotassi.amazmod.db.model.NotificationPreferencesEntity;
 import com.edotassi.amazmod.db.model.NotificationPreferencesEntity_Table;
 import com.edotassi.amazmod.event.local.ReplyToNotificationLocal;
 import com.edotassi.amazmod.notification.factory.NotificationFactory;
+import com.edotassi.amazmod.notification.navigation.GMapsNavigationParser;
+import com.edotassi.amazmod.notification.navigation.NavigationDispatcher;
 import com.edotassi.amazmod.support.SilenceApplicationHelper;
 import com.edotassi.amazmod.transport.TransportService;
 import com.edotassi.amazmod.util.NotificationUtils;
@@ -93,6 +95,9 @@ public class NotificationService extends NotificationListenerService {
 
     private static ComponentName serviceComponent;
     private static JobScheduler jobScheduler;
+
+    // Turn-by-turn navigation extracted from the Google Maps ongoing notification
+    private static final NavigationDispatcher navigationDispatcher = new NavigationDispatcher();
 
     @Override
     public void onCreate() {
@@ -253,6 +258,13 @@ public class NotificationService extends NotificationListenerService {
             return;
 
         String key = statusBarNotification.getKey();
+
+        // Maps dropping its ongoing notification is how we learn navigation ended. This has to run
+        // before the checks below, which would otherwise discard it since Maps is not necessarily
+        // in the user's allowed packages.
+        if (GMapsNavigationParser.GMAPS_PACKAGE.equals(statusBarNotification.getPackageName())) {
+            navigationDispatcher.stopNavigation();
+        }
 
         // Check settings
         if (!Prefs.getBoolean(Constants.PREF_ENABLE_NOTIFICATIONS, Constants.PREF_DEFAULT_ENABLE_NOTIFICATIONS)
@@ -780,6 +792,14 @@ public class NotificationService extends NotificationListenerService {
     private void mapNotification(StatusBarNotification statusBarNotification) {
 
         final String notificationPackage = statusBarNotification.getPackageName();
+
+        // Preferred path: parse the notification into structured turn-by-turn data and drive the
+        // navigation screen on the watch. Falls through to the plain-text path below whenever the
+        // parser comes up empty, which is what happens if Maps changes its notification layout.
+        if (navigationDispatcher.handleMapsNotification(this, statusBarNotification)) {
+            storeForStats(notificationPackage, Constants.FILTER_MAPS);
+            return;
+        }
 
         NotificationData notificationData = NotificationFactory.getMapNotification(this, statusBarNotification);
 

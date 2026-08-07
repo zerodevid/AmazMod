@@ -39,6 +39,7 @@ import amazmod.com.transport.Constants;
 import amazmod.com.transport.Transport;
 import amazmod.com.transport.Transportable;
 import amazmod.com.transport.data.BrightnessData;
+import amazmod.com.transport.data.NavigationData;
 import amazmod.com.transport.data.NotificationData;
 import amazmod.com.transport.data.RequestDeleteFileData;
 import amazmod.com.transport.data.RequestDirectoryData;
@@ -277,6 +278,32 @@ public class Watch {
             public Object then(@NonNull Task<TransportService> task) {
                 if (task.getResult() != null)
                     task.getResult().send(Transport.SYNC_SETTINGS, settingsData, taskCompletionSource);
+                return null;
+            }
+        });
+        return taskCompletionSource.getTask();
+    }
+
+    public Task<Void> postNavigationData(final NavigationData navigationData) {
+        final TaskCompletionSource<Void> taskCompletionSource = new TaskCompletionSource<>();
+        getServiceInstance().continueWith(new Continuation<TransportService, Object>() {
+            @Override
+            public Object then(@NonNull Task<TransportService> task) {
+                if (task.getResult() != null)
+                    task.getResult().send(Transport.NAVIGATION_DATA, navigationData, taskCompletionSource);
+                return null;
+            }
+        });
+        return taskCompletionSource.getTask();
+    }
+
+    public Task<Void> stopNavigation() {
+        final TaskCompletionSource<Void> taskCompletionSource = new TaskCompletionSource<>();
+        getServiceInstance().continueWith(new Continuation<TransportService, Object>() {
+            @Override
+            public Object then(@NonNull Task<TransportService> task) {
+                if (task.getResult() != null)
+                    task.getResult().send(Transport.NAVIGATION_STOP, new NavigationData(), taskCompletionSource);
                 return null;
             }
         });
