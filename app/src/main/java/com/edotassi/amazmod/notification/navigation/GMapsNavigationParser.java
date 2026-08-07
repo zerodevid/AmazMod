@@ -67,10 +67,6 @@ public class GMapsNavigationParser {
     // Which strategy supplied what, logged when parsing goes wrong
     private final List<String> sources = new ArrayList<>();
 
-    // TEMPORARY (test build): every text the notification renders, so fields we have not located
-    // yet can be found. Remove with the probe.
-    private final List<String> seenTexts = new ArrayList<>();
-
     // True once we managed to split an instruction into road plus description
     private boolean instructionStructured = false;
 
@@ -99,14 +95,10 @@ public class GMapsNavigationParser {
                 && navigationData.getDistanceToNext().isEmpty()
                 && navigationData.getIconHash().isEmpty());
 
-        // TEMPORARY (test build): logged at error level so it survives the log-level filtering
-        // on this phone. Revert to warn/debug before committing.
         if (navigationData.isEmpty())
-            probe("NO DATA tried=" + sources
-                    + "\n          views=" + seenTexts + "\n          extras=" + dumpExtras());
+            Logger.warn("GMapsNavigationParser no strategy produced data, tried: {}", sources);
         else
-            probe("OK sources=" + sources + " | data=" + navigationData
-                    + "\n          views=" + seenTexts + "\n          extras=" + dumpExtras());
+            Logger.debug("GMapsNavigationParser sources: {}", sources);
 
         return navigationData;
     }
@@ -268,7 +260,6 @@ public class GMapsNavigationParser {
             return;
         }
 
-        collectSeenTexts(group);
         parseByViewId(group);
         parseByShape(group);
     }
@@ -530,22 +521,6 @@ public class GMapsNavigationParser {
         return viewGroup;
     }
 
-    /** TEMPORARY (test build): records what the notification actually renders. */
-    private void collectSeenTexts(ViewGroup group) {
-        final List<TextView> textViews = new ArrayList<>();
-        final List<ImageView> imageViews = new ArrayList<>();
-        collectViews(group, textViews, imageViews);
-
-        for (TextView textView : textViews) {
-            final String value = text(textOf(textView));
-            if (!value.isEmpty()) {
-                final String entry = getEntryName(textView) + "='" + value + "'";
-                if (!seenTexts.contains(entry))
-                    seenTexts.add(entry);
-            }
-        }
-    }
-
     private void collectViews(ViewGroup group, List<TextView> textViews, List<ImageView> imageViews) {
         for (int i = 0; i < group.getChildCount(); i++) {
             final View child = group.getChildAt(i);
@@ -575,51 +550,6 @@ public class GMapsNavigationParser {
             }
         }
         return null;
-    }
-
-    /**
-     * TEMPORARY (test build): writes straight to a file next to the app's own logs.
-     * tinylog's file writer proved unreliable here and this phone's ROM drops app logcat output,
-     * so this is the only channel that reliably survives. Remove before committing.
-     */
-    private void probe(String message) {
-        try {
-            final java.io.File dir = context.getExternalFilesDir(null);
-            if (dir == null)
-                return;
-
-            final java.io.FileWriter writer = new java.io.FileWriter(new java.io.File(dir, "navtest.log"), true);
-            writer.write(new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
-                    .format(new java.util.Date()) + "  " + message + "\n\n");
-            writer.close();
-        } catch (Exception e) {
-            Logger.error("probe failed: " + e.getMessage());
-        }
-    }
-
-    /** TEMPORARY (test build): shows which notification extras Maps actually populated. */
-    private String dumpExtras() {
-        try {
-            final Bundle extras = notification.extras;
-            if (extras == null)
-                return "null";
-
-            final StringBuilder sb = new StringBuilder();
-            for (String key : extras.keySet()) {
-                final Object value = extras.get(key);
-                if (value instanceof CharSequence)
-                    sb.append(key).append("='").append(value).append("' ");
-                else if (value instanceof Number || value instanceof Boolean)
-                    sb.append(key).append("=").append(value).append(" ");
-                else if (value instanceof java.util.List)
-                    sb.append(key).append("=list").append(value).append(" ");
-                else if (value != null)
-                    sb.append(key).append("=<").append(value.getClass().getSimpleName()).append("> ");
-            }
-            return sb.toString();
-        } catch (Exception e) {
-            return "dump failed: " + e.getMessage();
-        }
     }
 
     private String getEntryName(View view) {
