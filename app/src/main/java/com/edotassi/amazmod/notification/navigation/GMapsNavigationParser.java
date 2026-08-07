@@ -91,6 +91,7 @@ public class GMapsNavigationParser {
     public NavigationData parse() {
         parseFromExtras();
         parseFromRemoteViews();
+        deriveMissingFigures();
 
         // Maps is not giving a manoeuvre: no styled instruction, no distance and no arrow. That is
         // what "Rerouting..." and similar status lines look like, in any language.
@@ -108,6 +109,71 @@ public class GMapsNavigationParser {
                     + "\n          views=" + seenTexts + "\n          extras=" + dumpExtras());
 
         return navigationData;
+    }
+
+    /**
+     * Fills in the two figures Maps stopped publishing as text.
+     *
+     * ProgressStyle carries the route as a progress bar measured in metres: progressMax is the
+     * whole route and progress is how far along it we are, which was confirmed by the segment
+     * lengths summing exactly to progressMax and by one amber "traffic" segment of 226 - sensible
+     * as metres, absurd as anything smaller. Remaining time then follows from the arrival clock
+     * Maps does publish, minus the current time.
+     *
+     * Both are only used when Maps gave us nothing better.
+     */
+    private void deriveMissingFigures() {
+        deriveTotalDistance();
+        deriveRemainingTime();
+        deriveProgress();
+    }
+
+    /** Route completion for the watch's progress bar, from the same metres. */
+    private void deriveProgress() {
+        final Bundle extras = notification.extras;
+        if (extras == null)
+            return;
+
+        final int max = extras.getInt("android.progressMax", 0);
+        final int done = extras.getInt("android.progress", 0);
+
+        if (max <= 0 || done < 0 || done > max)
+            return;
+
+        navigationData.setProgressPercent((int) Math.round(done * 100.0 / max));
+    }
+
+    private void deriveTotalDistance() {
+        if (!navigationData.getTotalDistance().isEmpty())
+            return;
+
+        final Bundle extras = notification.extras;
+        if (extras == null)
+            return;
+
+        final int max = extras.getInt("android.progressMax", 0);
+        final int done = extras.getInt("android.progress", 0);
+
+        if (max <= 0 || done > max)
+            return;
+
+        navigationData.setTotalDistance(NavigationTextParser.formatDistanceMetres(max - done));
+        sources.add("total=progressMax-progress");
+    }
+
+    private void deriveRemainingTime() {
+        if (!navigationData.getEte().isEmpty() || navigationData.getEta().isEmpty())
+            return;
+
+        final java.util.Calendar now = java.util.Calendar.getInstance();
+        final int minutes = NavigationTextParser.minutesUntil(navigationData.getEta(),
+                now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE));
+
+        if (minutes < 0)
+            return;
+
+        navigationData.setEte(NavigationTextParser.formatDuration(minutes));
+        sources.add("ete=eta-now");
     }
 
     /*
@@ -531,6 +597,10 @@ public class GMapsNavigationParser {
                 final Object value = extras.get(key);
                 if (value instanceof CharSequence)
                     sb.append(key).append("='").append(value).append("' ");
+                else if (value instanceof Number || value instanceof Boolean)
+                    sb.append(key).append("=").append(value).append(" ");
+                else if (value instanceof java.util.List)
+                    sb.append(key).append("=list").append(value).append(" ");
                 else if (value != null)
                     sb.append(key).append("=<").append(value.getClass().getSimpleName()).append("> ");
             }

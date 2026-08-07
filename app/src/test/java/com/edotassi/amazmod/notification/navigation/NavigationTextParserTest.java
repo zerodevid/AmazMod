@@ -164,4 +164,53 @@ public class NavigationTextParserTest {
         assertEquals("", NavigationTextParser.extractClock("Ke arah barat"));
         assertEquals("", NavigationTextParser.extractClock("1.5 km"));
     }
+
+    @Test
+    public void formatsTheRouteLengthObservedOnAndroid16() {
+        // progressMax 381218 minus progress 4, straight from the phone
+        assertEquals("381 km", NavigationTextParser.formatDistanceMetres(381218 - 4));
+    }
+
+    @Test
+    public void formatsDistancesAcrossTheRanges() {
+        assertEquals("450 m", NavigationTextParser.formatDistanceMetres(450));
+        assertEquals("999 m", NavigationTextParser.formatDistanceMetres(999));
+        assertEquals("1.0 km", NavigationTextParser.formatDistanceMetres(1000).replace(',', '.'));
+        assertEquals("12.3 km", NavigationTextParser.formatDistanceMetres(12340).replace(',', '.'));
+        assertEquals("381 km", NavigationTextParser.formatDistanceMetres(381214));
+        assertEquals("", NavigationTextParser.formatDistanceMetres(-1));
+    }
+
+    @Test
+    public void computesRemainingTimeFromTheArrivalClock() {
+        // The real case: log stamped 05:52, Maps said "Tiba 14.37"
+        assertEquals(8 * 60 + 45, NavigationTextParser.minutesUntil("Tiba 14.37", 5, 52));
+    }
+
+    @Test
+    public void remainingTimeWrapsPastMidnight() {
+        // Arriving 00.30 when it is 23:50 is 40 minutes away, not minus a day
+        assertEquals(40, NavigationTextParser.minutesUntil("Tiba 00.30", 23, 50));
+    }
+
+    @Test
+    public void remainingTimeUnderstandsTwelveHourClocks() {
+        assertEquals(105, NavigationTextParser.minutesUntil("8:45 PM", 19, 0));
+        assertEquals(30, NavigationTextParser.minutesUntil("12:30 AM", 0, 0));
+    }
+
+    @Test
+    public void remainingTimeRefusesUnreadableInput() {
+        assertEquals(-1, NavigationTextParser.minutesUntil("Ke arah timur", 5, 52));
+        assertEquals(-1, NavigationTextParser.minutesUntil("", 5, 52));
+        assertEquals(-1, NavigationTextParser.minutesUntil(null, 5, 52));
+    }
+
+    @Test
+    public void formatsDurations() {
+        assertEquals("45 mnt", NavigationTextParser.formatDuration(45));
+        assertEquals("8 j 45 mnt", NavigationTextParser.formatDuration(525));
+        assertEquals("2 j", NavigationTextParser.formatDuration(120));
+        assertEquals("", NavigationTextParser.formatDuration(-1));
+    }
 }

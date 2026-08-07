@@ -206,4 +206,80 @@ public class NavigationTextParser {
         if (!trimmed.isEmpty())
             parts.add(trimmed);
     }
+
+    /**
+     * Formats a distance in metres the way Maps itself would: metres below a kilometre, one
+     * decimal up to 100 km, whole kilometres beyond that.
+     */
+    public static String formatDistanceMetres(long metres) {
+        if (metres < 0)
+            return "";
+
+        if (metres < 1000)
+            return metres + " m";
+
+        final double km = metres / 1000.0;
+
+        if (km < 100)
+            return String.format(java.util.Locale.getDefault(), "%.1f km", km);
+
+        return Math.round(km) + " km";
+    }
+
+    /**
+     * Minutes from the given wall clock until the arrival time, wrapping past midnight.
+     *
+     * The current time is passed in rather than read here so this stays a pure function.
+     *
+     * @param clock arrival reading such as "14.37" or "8:45 PM"
+     * @return minutes remaining, or -1 when the arrival time could not be read
+     */
+    public static int minutesUntil(String clock, int nowHour, int nowMinute) {
+        final String reading = extractClock(clock);
+        if (reading.isEmpty())
+            return -1;
+
+        try {
+            final boolean pm = reading.toUpperCase(java.util.Locale.ROOT).contains("PM");
+            final boolean am = reading.toUpperCase(java.util.Locale.ROOT).contains("AM");
+            final String digits = reading.replaceAll("[^0-9:.]", "");
+            final String[] parts = digits.split("[:.]");
+            if (parts.length < 2)
+                return -1;
+
+            int hour = Integer.parseInt(parts[0]);
+            final int minute = Integer.parseInt(parts[1]);
+
+            if (pm && hour < 12)
+                hour += 12;
+            if (am && hour == 12)
+                hour = 0;
+
+            if (hour > 23 || minute > 59)
+                return -1;
+
+            int minutes = (hour * 60 + minute) - (nowHour * 60 + nowMinute);
+            if (minutes < 0)
+                minutes += 24 * 60;   // arrival is tomorrow
+
+            return minutes;
+
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** "45 mnt", "8 j 45 mnt" - matching the units Indonesian Maps uses. */
+    public static String formatDuration(int minutes) {
+        if (minutes < 0)
+            return "";
+
+        if (minutes < 60)
+            return minutes + " mnt";
+
+        final int hours = minutes / 60;
+        final int rest = minutes % 60;
+
+        return (rest == 0) ? (hours + " j") : (hours + " j " + rest + " mnt");
+    }
 }
