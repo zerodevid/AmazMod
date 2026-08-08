@@ -160,9 +160,14 @@ public class RouteProgressView extends View {
         canvas.restoreToCount(saved);
 
         if (travelledX >= 0) {
+            // Kept a full radius away from either end. At the start of a trip the marker sits at
+            // x=0 and half of it falls outside the view, which draws as a half circle and reads as
+            // a rendering fault rather than as "you are at the beginning".
+            final float markerX = Math.max(markerRadius, Math.min(width - markerRadius, travelledX));
+
             paint.setColor(MARKER_COLOUR);
             paint.setAlpha(255);
-            canvas.drawCircle(travelledX, height / 2f, markerRadius, paint);
+            canvas.drawCircle(markerX, height / 2f, markerRadius, paint);
         }
     }
 }
