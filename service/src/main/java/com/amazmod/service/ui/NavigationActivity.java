@@ -198,13 +198,17 @@ public class NavigationActivity extends Activity {
             return;
         }
 
+        // The compass takes the disc whenever there is a heading to point at, and the manoeuvre
+        // arrow gives way: in that state Maps sends a generic "keep going" arrow worth nothing
+        final boolean hasBearing = data.getBearing() >= 0;
         final Bitmap icon = NavigationStore.getCurrentIcon();
-        if (icon != null && !icon.isRecycled()) {
+        final boolean hasIcon = icon != null && !icon.isRecycled();
+
+        if (hasIcon)
             iconImage.setImageBitmap(icon);
-            iconHolder.setVisibility(View.VISIBLE);
-        } else {
-            iconHolder.setVisibility(View.GONE);
-        }
+
+        iconImage.setVisibility(hasBearing ? View.GONE : (hasIcon ? View.VISIBLE : View.GONE));
+        iconHolder.setVisibility((hasBearing || hasIcon) ? View.VISIBLE : View.GONE);
 
         distanceText.setText(data.getDistanceToNext());
         roadText.setText(data.getNextRoad());
