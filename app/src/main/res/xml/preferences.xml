@@ -88,6 +88,14 @@
             app:iconSpaceReserved="false"
             android:defaultValue="true"
             android:dependency="preference.enable.navigation"
+            android:key="preference.navigation.speed"
+            android:summary="@string/pref_navigation_speed_summary"
+            android:title="@string/pref_navigation_speed" />
+
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="true"
+            android:dependency="preference.enable.navigation"
             android:key="preference.navigation.traffic"
             android:summary="@string/pref_navigation_traffic_summary"
             android:title="@string/pref_navigation_traffic" />

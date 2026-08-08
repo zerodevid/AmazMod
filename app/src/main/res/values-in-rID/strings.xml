@@ -516,4 +516,7 @@ follow the system theme (beta).</string>
     <string name="pref_navigation_auto_brightness_summary">Pakai sensor cahaya jam untuk meredup di malam hari dan menerang di bawah matahari</string>
     <string name="pref_navigation_heart_rate">Tampilkan detak jantung</string>
     <string name="pref_navigation_heart_rate_summary">Baca sensor detak jantung jam selama navigasi. Termasuk sensor paling boros di jam</string>
+    <string name="pref_navigation_speed">Tampilkan kecepatan</string>
+    <string name="pref_navigation_speed_summary">Kecepatan dari GPS ponsel, yang memang sudah menyala selama navigasi</string>
+    <string name="navigation_unit_speed">km/j</string>
 </resources>

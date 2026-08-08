@@ -54,7 +54,7 @@ public class NavigationActivity extends Activity {
     // Whether this screen is the one being looked at, which decides if closing may change what is
     private boolean inForeground = false;
 
-    private TextView heartText;
+    private TextView heartText, speedText;
     private SensorManager sensorManager;
     private SensorEventListener heartListener, lightListener;
     private boolean heartWanted = false, brightnessWanted = false;
@@ -87,6 +87,7 @@ public class NavigationActivity extends Activity {
         clockText = findViewById(R.id.activity_navigation_clock);
         compassImage = findViewById(R.id.activity_navigation_compass);
         heartText = findViewById(R.id.activity_navigation_heart);
+        speedText = findViewById(R.id.activity_navigation_speed);
 
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         setupExtraSensors();
@@ -261,6 +262,10 @@ public class NavigationActivity extends Activity {
     }
 
     private void applyExtras(NavigationData data) {
+        final String speed = data.getSpeed();
+        speedText.setText(speed);
+        speedText.setVisibility(speed.isEmpty() ? View.GONE : View.VISIBLE);
+
         setHeartRate(data.isShowHeartRate());
         setAutoBrightness(data.isAutoBrightness());
         updateStatus();

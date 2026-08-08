@@ -56,6 +56,8 @@ public class Constants {
     public static final boolean PREF_DEFAULT_NAVIGATION_SCREEN_ON = false;
     public static final String PREF_NAVIGATION_VIBRATE_ON_TURN = "preference.navigation.vibrate.on.turn";
     public static final String PREF_NAVIGATION_KEEP_SCREEN_ON = "preference.navigation.keep.screen.on";
+    public static final String PREF_NAVIGATION_SPEED = "preference.navigation.speed";
+    public static final boolean PREF_DEFAULT_NAVIGATION_SPEED = true;
     public static final String PREF_NAVIGATION_TRAFFIC = "preference.navigation.traffic";
     public static final boolean PREF_DEFAULT_NAVIGATION_TRAFFIC = true;
     public static final String PREF_NAVIGATION_HEART_RATE = "preference.navigation.heart.rate";

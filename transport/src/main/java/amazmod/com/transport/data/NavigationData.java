@@ -38,6 +38,7 @@ public class NavigationData extends Transportable implements Parcelable {
     private static final String TRAFFIC_AHEAD = "trafficAhead";
     private static final String SHOW_HEART_RATE = "showHeartRate";
     private static final String AUTO_BRIGHTNESS = "autoBrightness";
+    private static final String SPEED = "speed";
 
     // "Turn right onto", the road name in the Maps notification
     private String nextRoad;
@@ -70,6 +71,8 @@ public class NavigationData extends Transportable implements Parcelable {
     // Watch-side extras the phone owner switched on; they cost battery, so they are opt-in
     private boolean showHeartRate;
     private boolean autoBrightness;
+    // Current speed, already formatted, or empty when unknown or switched off
+    private String speed;
 
     public NavigationData() {
         this.nextRoad = "";
@@ -90,6 +93,7 @@ public class NavigationData extends Transportable implements Parcelable {
         this.trafficAhead = "";
         this.showHeartRate = false;
         this.autoBrightness = false;
+        this.speed = "";
     }
 
     protected NavigationData(Parcel in) {
@@ -111,6 +115,7 @@ public class NavigationData extends Transportable implements Parcelable {
         trafficAhead = in.readString();
         showHeartRate = in.readByte() != 0;
         autoBrightness = in.readByte() != 0;
+        speed = in.readString();
     }
 
     public static final Creator<NavigationData> CREATOR = new Creator<NavigationData>() {
@@ -146,6 +151,7 @@ public class NavigationData extends Transportable implements Parcelable {
         dataBundle.putString(TRAFFIC_AHEAD, trafficAhead);
         dataBundle.putBoolean(SHOW_HEART_RATE, showHeartRate);
         dataBundle.putBoolean(AUTO_BRIGHTNESS, autoBrightness);
+        dataBundle.putString(SPEED, speed);
 
         return dataBundle;
     }
@@ -171,6 +177,7 @@ public class NavigationData extends Transportable implements Parcelable {
         navigationData.setTrafficAhead(dataBundle.getString(TRAFFIC_AHEAD));
         navigationData.setShowHeartRate(dataBundle.getBoolean(SHOW_HEART_RATE));
         navigationData.setAutoBrightness(dataBundle.getBoolean(AUTO_BRIGHTNESS));
+        navigationData.setSpeed(dataBundle.getString(SPEED));
 
         return navigationData;
     }
@@ -330,6 +337,14 @@ public class NavigationData extends Transportable implements Parcelable {
         this.autoBrightness = autoBrightness;
     }
 
+    public String getSpeed() {
+        return speed == null ? "" : speed;
+    }
+
+    public void setSpeed(String speed) {
+        this.speed = speed;
+    }
+
     /**
      * Text-only signature of the trip state, used by the phone to avoid re-sending identical data.
      * The icon is deliberately left out: it is keyed by iconHash which is part of this signature.
@@ -373,6 +388,7 @@ public class NavigationData extends Transportable implements Parcelable {
         dest.writeString(trafficAhead);
         dest.writeByte((byte) (showHeartRate ? 1 : 0));
         dest.writeByte((byte) (autoBrightness ? 1 : 0));
+        dest.writeString(speed);
     }
 
     @Override

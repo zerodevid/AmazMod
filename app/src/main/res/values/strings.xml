@@ -527,4 +527,7 @@ follow the system theme (beta).</string>
     <string name="pref_navigation_auto_brightness_summary">Use the watch light sensor to dim at night and brighten in sunlight</string>
     <string name="pref_navigation_heart_rate">Show heart rate</string>
     <string name="pref_navigation_heart_rate_summary">Read the watch heart rate sensor while navigating. One of the more expensive sensors on the watch</string>
+    <string name="pref_navigation_speed">Show speed</string>
+    <string name="pref_navigation_speed_summary">Current speed from the phone GPS, which navigation already has running</string>
+    <string name="navigation_unit_speed">km/h</string>
 </resources>

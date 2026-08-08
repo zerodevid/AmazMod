@@ -60,11 +60,14 @@ public class NavigationDispatcher {
     private NavigationData pendingData;
     private byte[] pendingIcon = new byte[0];
     private Runnable flushTask;
+    private final SpeedProvider speedProvider = new SpeedProvider();
     private final Handler heartbeat = new Handler(Looper.getMainLooper());
     private Runnable heartbeatTask;
 
     // When Maps last said anything, as opposed to when we last spoke to the watch
     private long lastNotificationTime = 0;
+
+    private String speedUnit = "km/h";
 
     private String lastSignature = "";
     private String lastRoad = "";
@@ -103,6 +106,13 @@ public class NavigationDispatcher {
         // stayed quiet.
         pendingData = navigationData;
         pendingIcon = navigationData.getIcon();
+
+        if (Prefs.getBoolean(Constants.PREF_NAVIGATION_SPEED, Constants.PREF_DEFAULT_NAVIGATION_SPEED)) {
+            speedUnit = context.getString(com.edotassi.amazmod.R.string.navigation_unit_speed);
+            speedProvider.start(context);
+        } else {
+            speedProvider.stop();
+        }
         lastNotificationTime = System.currentTimeMillis();
         navigating = true;
         startHeartbeat();
@@ -163,6 +173,9 @@ public class NavigationDispatcher {
                 Constants.PREF_DEFAULT_NAVIGATION_HEART_RATE));
         pendingData.setAutoBrightness(Prefs.getBoolean(Constants.PREF_NAVIGATION_AUTO_BRIGHTNESS,
                 Constants.PREF_DEFAULT_NAVIGATION_AUTO_BRIGHTNESS));
+
+        final int speedKmh = speedProvider.getSpeedKmh();
+        pendingData.setSpeed(speedKmh < 0 ? "" : (speedKmh + " " + speedUnit));
 
         final boolean delivered = send(pendingData, now);
         lastSentTime = now;
@@ -274,6 +287,7 @@ public class NavigationDispatcher {
         TransportService.sendWithTransporterAmazMod(Transport.NAVIGATION_STOP, new DataBundle());
 
         stopHeartbeat();
+        speedProvider.stop();
         pendingData = null;
         pendingIcon = new byte[0];
         lastNotificationTime = 0;
