@@ -2,12 +2,15 @@
     Small compass dial. Drawn pointing up and rotated by the activity, so the pointer ends up
     aimed at the direction Maps told us to head.
 
-    Sized for roughly 26dp on screen, so the shapes are deliberately chunky: a thin needle would
-    disappear at that size on the Verge panel.
+    The declared size matches the viewport one to one. Android rasterises a vector at its intrinsic
+    size and scales the bitmap from there, so declaring 26dp and drawing it at 44dp gave visibly
+    broken edges. Declared large, it is only ever scaled down, which stays clean.
+
+    The shapes are deliberately chunky: a thin needle would disappear at the sizes this is used at.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="26dp"
-    android:height="26dp"
+    android:width="48dp"
+    android:height="48dp"
     android:viewportWidth="48"
     android:viewportHeight="48">
 
