@@ -12,7 +12,8 @@ AmazMod used to be a modified ("modded") Amazfit app, the companion app for Pace
 * Control watch's screen brightness from phone ("Auto brightness" on watch must be *off* for this to work);  
 * Option not to send notifications to watch when the smartphone's screen is on;
 * An overlay button for a direct custom notification drawer;
-* Receive messenger call notifications and maps navigation info on watch;
+* Receive messenger call notifications on watch;
+* Turn-by-turn Google Maps navigation on the watch, with a compass and a route progress bar (see [below](#google-maps-turn-by-turn-navigation));
 * File transfer to and from the watch over the air directly from smartphone;
 * Built-in File Explorer on the watch with image and text viewing abilities;
 * Shell execution optionality to the watch directly from the phone;
@@ -26,6 +27,50 @@ AmazMod used to be a modified ("modded") Amazfit app, the companion app for Pace
 * Uninstall applications from watch;
 * Hourly chime feature (vibration every hour);
 * More to come.
+
+### Google Maps turn-by-turn navigation
+
+Directions appear on the watch as their own screen rather than as a plain notification, so a glance
+at the wrist is enough while riding.
+
+The screen shows the next manoeuvre with its arrow and how far away it is, then distance left, time
+left and arrival time as three labelled figures, a bar for how much of the route is behind you, and
+the time - the watch face is hidden while navigating, so the screen carries its own clock.
+
+When Maps names a direction instead of a turn - "head east", which is what it does setting off and
+after losing the route - a small compass appears and points that way. Turn until the needle points
+up and you are facing correctly. If the magnetometer drifts the needle turns red and the screen asks
+for a figure of eight, because nobody guesses that on their own.
+
+The screen opens by itself when a trip starts, comes back at each new manoeuvre if you swipe it
+away, and hands the watch back to its watch face when the trip ends. Starting and ending vibrate in
+two different patterns so they can be told apart without looking. The same trip is also on a
+Navigation page in the widget carousel.
+
+###### Settings (phone app, under Notifications)
+
+* **Turn-by-turn navigation** - the navigation screen instead of a plain notification;
+* **Vibrate on each turn**;
+* **Wake screen on each turn**;
+* **Keep watch screen on while navigating** - lit for the whole trip, at a noticeable cost in watch
+  battery.
+
+"Enable Maps notification" has to be on for any of it, and as ever the stock Amazfit app must be
+installed and paired.
+
+###### What it cannot do, and why
+
+Google Maps offers no API for the current navigation step, so everything here is read back out of
+the notification it posts. That sets hard limits:
+
+* the **destination is not shown** - Maps does not publish it anywhere in the notification;
+* the **distance to the next manoeuvre** only appears once the phone is actually moving;
+* **distance and time remaining** are worked out from the route progress bar and the arrival clock,
+  because Maps no longer writes them as text;
+* if a future Maps release rearranges the notification again, navigation falls back to the old
+  plain-text behaviour rather than showing nothing at all.
+
+Developed against Google Maps 26 on Android 16, with an Amazfit Verge.
 
 ### Installation
 
