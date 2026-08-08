@@ -61,6 +61,19 @@ public class NavigationDispatcher {
     private byte[] pendingIcon = new byte[0];
     private Runnable flushTask;
     private final SpeedProvider speedProvider = new SpeedProvider();
+    private MapsPresence mapsPresence;
+
+    /**
+     * Lets the dispatcher ask whether Maps is still posting, rather than inferring it from silence.
+     * Implemented by the notification listener, which is the only thing that can actually see.
+     */
+    public interface MapsPresence {
+        boolean isNavigationNotificationPresent();
+    }
+
+    public void setMapsPresence(MapsPresence mapsPresence) {
+        this.mapsPresence = mapsPresence;
+    }
     private final Handler heartbeat = new Handler(Looper.getMainLooper());
     private Runnable heartbeatTask;
 
@@ -247,13 +260,23 @@ public class NavigationDispatcher {
 
                 // A trip normally ends when Maps drops its notification, but that signal can be
                 // missed - the listener rebinding, this process being restarted mid-trip, Maps
-                // being force stopped. Without a second way out the heartbeat would go on pushing
-                // stale directions to the watch for as long as the phone stayed awake.
+                // being force stopped - so silence eventually has to be looked into.
+                //
+                // Looked into, not acted on. Maps posts only when what it shows changes, so a phone
+                // standing still or running down a long straight can be quiet for many minutes
+                // while navigating perfectly well. Ending the trip on silence alone closed the
+                // screen mid-journey and sent the watch back to its watch face.
                 if ((now - lastNotificationTime) > Constants.NAVIGATION_IDLE_TIMEOUT) {
-                    Logger.warn("NavigationDispatcher no word from Maps for {} ms, ending trip",
-                            now - lastNotificationTime);
-                    stopNavigation();
-                    return;
+                    if (isMapsStillNavigating()) {
+                        // Quiet, not finished. Start the clock again so this is asked periodically
+                        // rather than every five seconds from here on.
+                        lastNotificationTime = now;
+
+                    } else {
+                        Logger.warn("NavigationDispatcher Maps notification gone, ending trip");
+                        stopNavigation();
+                        return;
+                    }
                 }
                 // flush() already knows when unchanged data is due and how to decide about the
                 // arrow, so the beat is only a reason to ask
@@ -264,6 +287,22 @@ public class NavigationDispatcher {
         };
 
         heartbeat.postDelayed(heartbeatTask, RESEND_INTERVAL);
+    }
+
+    /**
+     * @return true when Maps still has its navigation notification up. Errs towards true: keeping a
+     *         live screen open costs nothing, closing one mid-trip is what this is here to prevent.
+     */
+    private boolean isMapsStillNavigating() {
+        if (mapsPresence == null)
+            return true;
+
+        try {
+            return mapsPresence.isNavigationNotificationPresent();
+        } catch (Exception e) {
+            Logger.error("NavigationDispatcher could not check Maps: " + e.getMessage());
+            return true;
+        }
     }
 
     private void stopHeartbeat() {

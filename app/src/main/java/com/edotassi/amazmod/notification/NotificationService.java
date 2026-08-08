@@ -120,6 +120,24 @@ public class NotificationService extends NotificationListenerService {
         super.onListenerConnected();
         Logger.debug("onListenerConnected");
 
+        // The dispatcher cannot see notifications; this service can. Wiring it here means a trip is
+        // only ever ended because Maps actually dropped its notification, never because it went
+        // quiet for a while.
+        navigationDispatcher.setMapsPresence(new NavigationDispatcher.MapsPresence() {
+            @Override
+            public boolean isNavigationNotificationPresent() {
+                final StatusBarNotification[] active = getActiveNotifications();
+                if (active == null)
+                    return true;
+
+                for (StatusBarNotification sbn : active) {
+                    if (sbn != null && GMapsNavigationParser.GMAPS_PACKAGE.equals(sbn.getPackageName()))
+                        return true;
+                }
+                return false;
+            }
+        });
+
         startPersistentNotification();
 
         // Cancel all pending jobs to keep service running, then schedule a new one
