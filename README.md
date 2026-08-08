@@ -33,6 +33,11 @@ AmazMod used to be a modified ("modded") Amazfit app, the companion app for Pace
 Directions appear on the watch as their own screen rather than as a plain notification, so a glance
 at the wrist is enough while riding.
 
+<img src="images/navigation.png" width="300" alt="Navigation on an Amazfit Verge" />
+
+Taken from a Verge mid-trip. The distance to the next manoeuvre and the speed are missing here only
+because the phone was standing still - Maps publishes neither until something is actually moving.
+
 The screen shows the next manoeuvre with its arrow and how far away it is, then distance left, time
 left and arrival time as three labelled figures, a bar for how much of the route is behind you, and
 the time - the watch face is hidden while navigating, so the screen carries its own clock. Current
