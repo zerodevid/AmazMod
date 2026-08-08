@@ -37,6 +37,17 @@ public class NavigationDispatcher {
      */
     private static final long ICON_REFRESH_INTERVAL = 60000L;
 
+    /**
+     * How long the same unchanged data may go unsent.
+     *
+     * Skipping identical packets assumes the last one arrived, and nothing here ever confirms that:
+     * the transport fires and forgets. A packet sent while the tunnel was still asleep is simply
+     * lost, and because the data has not changed since, every later packet is skipped as a
+     * duplicate - so the watch can sit empty long after the phone started navigating. Repeating
+     * unchanged data occasionally costs almost nothing and makes the watch catch up on its own.
+     */
+    private static final long RESEND_INTERVAL = 5000L;
+
     // Arrows already delivered to the watch this session, with when they were last sent
     private static final int ICON_CACHE_SIZE = 24;
     private final Map<String, Long> sentIcons = new LinkedHashMap<>();
@@ -76,7 +87,7 @@ public class NavigationDispatcher {
         final long now = System.currentTimeMillis();
         final long sinceLast = now - lastSentTime;
 
-        if (signature.equals(lastSignature)) {
+        if (signature.equals(lastSignature) && sinceLast < RESEND_INTERVAL) {
             //Logger.debug("NavigationDispatcher unchanged, skipping");
             return true;
         }
@@ -111,7 +122,20 @@ public class NavigationDispatcher {
         final DataBundle dataBundle = navigationData.toDataBundle(new DataBundle());
         TransportService.sendWithTransporterAmazMod(Transport.NAVIGATION_DATA, dataBundle);
 
-        Logger.debug("NavigationDispatcher sent {}", navigationData);
+        // The send is fire-and-forget, so the tunnel being down is the closest thing to a delivery
+        // failure we can observe. Not recording it as sent lets the very next packet try again
+        // rather than being skipped as an unchanged duplicate.
+        final boolean delivered = TransportService.isTransporterAmazModConnected();
+
+        Logger.debug("NavigationDispatcher sent {} (tunnel up: {})", navigationData, delivered);
+
+        if (!delivered) {
+            // Keep the throttle so retries stay paced, but leave the signature alone so the next
+            // packet is not mistaken for a duplicate of one that never arrived
+            lastSentTime = now;
+            navigating = true;
+            return true;
+        }
 
         if (!iconHash.isEmpty() && navigationData.getIcon().length > 0)
             rememberIcon(iconHash, now);
