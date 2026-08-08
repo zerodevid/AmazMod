@@ -1,6 +1,7 @@
 package com.amazmod.service.ui;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Handler;
@@ -46,6 +47,8 @@ public class NavigationActivity extends Activity {
     private NavigationCompass compass;
     private boolean calibrationNeeded = false;
     private boolean phoneSilent = false;
+    // Whether this screen is the one being looked at, which decides if closing may change what is
+    private boolean inForeground = false;
     private TextView distanceText, roadText, roadDescriptionText, statusText;
     private TextView remainingValue, durationValue, arrivalValue;
     private TextView remainingLabel, durationLabel, arrivalLabel;
@@ -111,6 +114,7 @@ public class NavigationActivity extends Activity {
             staleHandler.postDelayed(staleCheck, STALE_CHECK_INTERVAL);
 
         compass.setVisible(true);
+        inForeground = true;
     }
 
     @Override
@@ -122,6 +126,7 @@ public class NavigationActivity extends Activity {
             staleHandler.removeCallbacks(staleCheck);
 
         compass.setVisible(false);
+        inForeground = false;
 
         super.onPause();
     }
@@ -130,7 +135,7 @@ public class NavigationActivity extends Activity {
     public void onNavigationUpdate(NavigationUpdateEvent event) {
         if (!event.isNavigating()) {
             Logger.debug("NavigationActivity navigation ended, closing");
-            finish();
+            finishToHome();
             return;
         }
 
@@ -141,7 +146,7 @@ public class NavigationActivity extends Activity {
         final NavigationData data = NavigationStore.getCurrentData();
 
         if (data == null) {
-            finish();
+            finishToHome();
             return;
         }
 
@@ -183,6 +188,29 @@ public class NavigationActivity extends Activity {
 
         showTripFigures(data);
         updateStatus();
+    }
+
+    /**
+     * Closes and leaves the watch on its watch face rather than on whatever happened to be behind
+     * this screen, which after a trip is usually a stale AmazMod page nobody asked for.
+     *
+     * Only when this screen is the one being looked at. Navigation can end while the user has
+     * already swiped somewhere else, and yanking them home from that would be worse than the
+     * problem being solved.
+     */
+    private void finishToHome() {
+        if (inForeground) {
+            try {
+                final Intent home = new Intent(Intent.ACTION_MAIN);
+                home.addCategory(Intent.CATEGORY_HOME);
+                home.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(home);
+            } catch (Exception e) {
+                Logger.error("NavigationActivity could not return home: " + e.getMessage());
+            }
+        }
+
+        finish();
     }
 
     /**
@@ -255,7 +283,7 @@ public class NavigationActivity extends Activity {
                 if (NavigationStore.isStale()) {
                     Logger.debug("NavigationActivity no updates from phone, closing");
                     NavigationStore.clear();
-                    finish();
+                    finishToHome();
                     return;
                 }
 
