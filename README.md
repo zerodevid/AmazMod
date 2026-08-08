@@ -35,7 +35,11 @@ at the wrist is enough while riding.
 
 The screen shows the next manoeuvre with its arrow and how far away it is, then distance left, time
 left and arrival time as three labelled figures, a bar for how much of the route is behind you, and
-the time - the watch face is hidden while navigating, so the screen carries its own clock.
+the time - the watch face is hidden while navigating, so the screen carries its own clock. Current
+speed sits beside the clock, taken from the phone's GPS, which navigation already has running.
+
+A jam on the road ahead is called out when there is one within the next few kilometres, read from
+the traffic colours Maps puts in its own progress bar.
 
 When Maps names a direction instead of a turn - "head east", which is what it does setting off and
 after losing the route - a small compass appears and points that way. Turn until the needle points
@@ -53,7 +57,15 @@ Navigation page in the widget carousel.
 * **Vibrate on each turn**;
 * **Wake screen on each turn**;
 * **Keep watch screen on while navigating** - lit for the whole trip, at a noticeable cost in watch
-  battery.
+  battery;
+* **Show speed** - current speed from the phone GPS;
+* **Show traffic ahead** - warn about a jam within the next few kilometres;
+* **Adjust screen brightness** - the watch light sensor dims the screen at night and brightens it in
+  sunlight, which both saves power and keeps it readable;
+* **Show heart rate** - off by default, since it is one of the more expensive sensors on the watch
+  and has nothing to do with finding your way.
+
+Both watch sensors stop as soon as the navigation screen is not in front of you.
 
 "Enable Maps notification" has to be on for any of it, and as ever the stock Amazfit app must be
 installed and paired.
@@ -71,6 +83,9 @@ the notification it posts. That sets hard limits:
   plain-text behaviour rather than showing nothing at all.
 
 Developed against Google Maps 26 on Android 16, with an Amazfit Verge.
+
+Speed needs the location permission granted to AmazMod. It is declared but Android asks for it
+separately; without it, speed simply does not appear and the rest carries on.
 
 ### Installation
 
