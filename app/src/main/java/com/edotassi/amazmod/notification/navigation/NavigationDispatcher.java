@@ -1,6 +1,8 @@
 package com.edotassi.amazmod.notification.navigation;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.service.notification.StatusBarNotification;
 
 import com.edotassi.amazmod.transport.TransportService;
@@ -52,6 +54,14 @@ public class NavigationDispatcher {
     private static final int ICON_CACHE_SIZE = 24;
     private final Map<String, Long> sentIcons = new LinkedHashMap<>();
 
+    // Last data built, replayed by the heartbeat so the watch hears from us even when Maps is quiet.
+    // The arrow is kept beside it rather than inside it: stripping the icon for one send must not
+    // destroy it, or once the watch's cache expires there would be nothing left to resend.
+    private NavigationData lastData;
+    private byte[] lastIcon = new byte[0];
+    private final Handler heartbeat = new Handler(Looper.getMainLooper());
+    private Runnable heartbeatTask;
+
     private String lastSignature = "";
     private String lastRoad = "";
     private long lastSentTime = 0;
@@ -99,6 +109,7 @@ public class NavigationDispatcher {
 
         // Only pay for the arrow bitmap when the watch may not have it
         final String iconHash = navigationData.getIconHash();
+        final byte[] fullIcon = navigationData.getIcon();
         final boolean iconIsFresh = !iconHash.isEmpty()
                 && sentIcons.containsKey(iconHash)
                 && (now - sentIcons.get(iconHash)) < ICON_REFRESH_INTERVAL;
@@ -119,33 +130,90 @@ public class NavigationDispatcher {
         navigationData.setKeepScreenOn(Prefs.getBoolean(Constants.PREF_NAVIGATION_KEEP_SCREEN_ON,
                 Constants.PREF_DEFAULT_NAVIGATION_KEEP_SCREEN_ON));
 
+        final boolean delivered = send(navigationData, now);
+
+        lastSentTime = now;
+        lastData = navigationData;
+        lastIcon = fullIcon;
+        navigating = true;
+        startHeartbeat();
+
+        if (delivered) {
+            lastSignature = signature;
+            lastRoad = navigationData.getNextRoad();
+        }
+        // Otherwise the signature is left alone, so the next packet retries instead of being
+        // mistaken for a duplicate of one that never arrived
+
+        return true;
+    }
+
+    /**
+     * @return whether the tunnel was up. The send itself is fire and forget, so this is the closest
+     *         thing to a delivery result the transport gives us.
+     */
+    private boolean send(NavigationData navigationData, long now) {
         final DataBundle dataBundle = navigationData.toDataBundle(new DataBundle());
         TransportService.sendWithTransporterAmazMod(Transport.NAVIGATION_DATA, dataBundle);
 
-        // The send is fire-and-forget, so the tunnel being down is the closest thing to a delivery
-        // failure we can observe. Not recording it as sent lets the very next packet try again
-        // rather than being skipped as an unchanged duplicate.
         final boolean delivered = TransportService.isTransporterAmazModConnected();
-
         Logger.debug("NavigationDispatcher sent {} (tunnel up: {})", navigationData, delivered);
 
-        if (!delivered) {
-            // Keep the throttle so retries stay paced, but leave the signature alone so the next
-            // packet is not mistaken for a duplicate of one that never arrived
-            lastSentTime = now;
-            navigating = true;
-            return true;
-        }
-
-        if (!iconHash.isEmpty() && navigationData.getIcon().length > 0)
+        final String iconHash = navigationData.getIconHash();
+        if (delivered && !iconHash.isEmpty() && navigationData.getIcon().length > 0)
             rememberIcon(iconHash, now);
 
-        lastSignature = signature;
-        lastRoad = navigationData.getNextRoad();
-        lastSentTime = now;
-        navigating = true;
+        return delivered;
+    }
 
-        return true;
+    /**
+     * Repeats the last data on a timer for as long as a trip is running.
+     *
+     * Everything here is driven by Maps posting a notification, and Maps posts one only when
+     * something it shows changes. Standing at a light or on a long straight it can stay quiet for
+     * a minute at a time, and the watch - which cannot tell a quiet phone from a disconnected one -
+     * gives up and says it is waiting. A heartbeat keeps that from happening and doubles as the
+     * retry for a first packet that went out before the tunnel was awake.
+     */
+    private void startHeartbeat() {
+        if (heartbeatTask != null)
+            return;
+
+        heartbeatTask = new Runnable() {
+            @Override
+            public void run() {
+                if (!navigating || lastData == null) {
+                    heartbeatTask = null;
+                    return;
+                }
+
+                final long now = System.currentTimeMillis();
+                if ((now - lastSentTime) >= RESEND_INTERVAL) {
+                    // The arrow may have expired from the watch's cache since the last beat, so the
+                    // decision is made fresh each time from the copy kept aside
+                    final String iconHash = lastData.getIconHash();
+                    final boolean iconIsFresh = !iconHash.isEmpty()
+                            && sentIcons.containsKey(iconHash)
+                            && (now - sentIcons.get(iconHash)) < ICON_REFRESH_INTERVAL;
+
+                    lastData.setIcon(iconIsFresh ? new byte[0] : lastIcon);
+
+                    send(lastData, now);
+                    lastSentTime = now;
+                }
+
+                heartbeat.postDelayed(this, RESEND_INTERVAL);
+            }
+        };
+
+        heartbeat.postDelayed(heartbeatTask, RESEND_INTERVAL);
+    }
+
+    private void stopHeartbeat() {
+        if (heartbeatTask != null) {
+            heartbeat.removeCallbacks(heartbeatTask);
+            heartbeatTask = null;
+        }
     }
 
     /** Tells the watch that navigation ended, so it can close the navigation screen. */
@@ -156,6 +224,10 @@ public class NavigationDispatcher {
         Logger.debug("NavigationDispatcher navigation stopped");
 
         TransportService.sendWithTransporterAmazMod(Transport.NAVIGATION_STOP, new DataBundle());
+
+        stopHeartbeat();
+        lastData = null;
+        lastIcon = new byte[0];
 
         navigating = false;
         lastSignature = "";
