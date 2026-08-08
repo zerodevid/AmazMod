@@ -57,10 +57,14 @@ public class NavigationDispatcher {
     // Last data built, replayed by the heartbeat so the watch hears from us even when Maps is quiet.
     // The arrow is kept beside it rather than inside it: stripping the icon for one send must not
     // destroy it, or once the watch's cache expires there would be nothing left to resend.
-    private NavigationData lastData;
-    private byte[] lastIcon = new byte[0];
+    private NavigationData pendingData;
+    private byte[] pendingIcon = new byte[0];
+    private Runnable flushTask;
     private final Handler heartbeat = new Handler(Looper.getMainLooper());
     private Runnable heartbeatTask;
+
+    // When Maps last said anything, as opposed to when we last spoke to the watch
+    private long lastNotificationTime = 0;
 
     private String lastSignature = "";
     private String lastRoad = "";
@@ -93,59 +97,87 @@ public class NavigationDispatcher {
             return false;
         }
 
-        final String signature = navigationData.getSignature();
-        final long now = System.currentTimeMillis();
-        final long sinceLast = now - lastSentTime;
+        // The newest reading always wins. Throttling is about how often we may transmit, not about
+        // which data is current, and dropping a fresh reading here was leaving the watch showing
+        // whatever happened to arrive first - typically "Rerouting" - for as long as Maps then
+        // stayed quiet.
+        pendingData = navigationData;
+        pendingIcon = navigationData.getIcon();
+        lastNotificationTime = System.currentTimeMillis();
+        navigating = true;
+        startHeartbeat();
 
-        if (signature.equals(lastSignature) && sinceLast < RESEND_INTERVAL) {
-            //Logger.debug("NavigationDispatcher unchanged, skipping");
-            return true;
-        }
+        flush(System.currentTimeMillis());
+        return true;
+    }
+
+    /**
+     * Transmits the newest reading if the throttle allows, and otherwise arranges to transmit it as
+     * soon as it does. Nothing is discarded: a reading that cannot go now goes shortly.
+     */
+    private void flush(long now) {
+        if (pendingData == null)
+            return;
+
+        final long sinceLast = now - lastSentTime;
+        final String signature = pendingData.getSignature();
+        final boolean changed = !signature.equals(lastSignature);
+
+        // Unchanged data still goes out periodically, so a packet lost while the tunnel was asleep
+        // does not leave the watch stranded
+        if (!changed && sinceLast < RESEND_INTERVAL)
+            return;
 
         if (sinceLast < Constants.NAVIGATION_MIN_INTERVAL) {
-            //Logger.debug("NavigationDispatcher throttled ({} ms since last)", sinceLast);
-            return true;
+            scheduleFlush(Constants.NAVIGATION_MIN_INTERVAL - sinceLast);
+            return;
         }
 
         // Only pay for the arrow bitmap when the watch may not have it
-        final String iconHash = navigationData.getIconHash();
-        final byte[] fullIcon = navigationData.getIcon();
+        final String iconHash = pendingData.getIconHash();
         final boolean iconIsFresh = !iconHash.isEmpty()
                 && sentIcons.containsKey(iconHash)
                 && (now - sentIcons.get(iconHash)) < ICON_REFRESH_INTERVAL;
-        if (iconIsFresh)
-            navigationData.setIcon(new byte[0]);
+        pendingData.setIcon(iconIsFresh ? new byte[0] : pendingIcon);
 
         // Vibrate and wake the screen when the manoeuvre itself changes, not on every distance tick
-        final boolean roadChanged = !navigationData.getNextRoad().equals(lastRoad);
-        if (roadChanged && Prefs.getBoolean(Constants.PREF_NAVIGATION_VIBRATE_ON_TURN,
-                Constants.PREF_DEFAULT_NAVIGATION_VIBRATE_ON_TURN)) {
-            navigationData.setVibration(150);
-        }
-        navigationData.setScreenOn(roadChanged && Prefs.getBoolean(
+        final boolean roadChanged = !pendingData.getNextRoad().equals(lastRoad);
+        pendingData.setVibration(roadChanged && Prefs.getBoolean(
+                Constants.PREF_NAVIGATION_VIBRATE_ON_TURN,
+                Constants.PREF_DEFAULT_NAVIGATION_VIBRATE_ON_TURN) ? 150 : 0);
+        pendingData.setScreenOn(roadChanged && Prefs.getBoolean(
                 Constants.PREF_NAVIGATION_SCREEN_ON, Constants.PREF_DEFAULT_NAVIGATION_SCREEN_ON));
 
         // Sent on every packet, not just on a turn: the watch needs to know the current wish even
         // if it opened the navigation screen midway through a trip
-        navigationData.setKeepScreenOn(Prefs.getBoolean(Constants.PREF_NAVIGATION_KEEP_SCREEN_ON,
+        pendingData.setKeepScreenOn(Prefs.getBoolean(Constants.PREF_NAVIGATION_KEEP_SCREEN_ON,
                 Constants.PREF_DEFAULT_NAVIGATION_KEEP_SCREEN_ON));
 
-        final boolean delivered = send(navigationData, now);
-
+        final boolean delivered = send(pendingData, now);
         lastSentTime = now;
-        lastData = navigationData;
-        lastIcon = fullIcon;
-        navigating = true;
-        startHeartbeat();
 
         if (delivered) {
             lastSignature = signature;
-            lastRoad = navigationData.getNextRoad();
+            lastRoad = pendingData.getNextRoad();
         }
-        // Otherwise the signature is left alone, so the next packet retries instead of being
-        // mistaken for a duplicate of one that never arrived
+        // Otherwise the signature is left alone, so the next attempt is not mistaken for a
+        // duplicate of one that never arrived
+    }
 
-        return true;
+    private void scheduleFlush(long delay) {
+        if (flushTask != null)
+            return;
+
+        flushTask = new Runnable() {
+            @Override
+            public void run() {
+                flushTask = null;
+                if (navigating)
+                    flush(System.currentTimeMillis());
+            }
+        };
+
+        heartbeat.postDelayed(flushTask, Math.max(0, delay));
     }
 
     /**
@@ -182,25 +214,26 @@ public class NavigationDispatcher {
         heartbeatTask = new Runnable() {
             @Override
             public void run() {
-                if (!navigating || lastData == null) {
+                if (!navigating || pendingData == null) {
                     heartbeatTask = null;
                     return;
                 }
 
                 final long now = System.currentTimeMillis();
-                if ((now - lastSentTime) >= RESEND_INTERVAL) {
-                    // The arrow may have expired from the watch's cache since the last beat, so the
-                    // decision is made fresh each time from the copy kept aside
-                    final String iconHash = lastData.getIconHash();
-                    final boolean iconIsFresh = !iconHash.isEmpty()
-                            && sentIcons.containsKey(iconHash)
-                            && (now - sentIcons.get(iconHash)) < ICON_REFRESH_INTERVAL;
 
-                    lastData.setIcon(iconIsFresh ? new byte[0] : lastIcon);
-
-                    send(lastData, now);
-                    lastSentTime = now;
+                // A trip normally ends when Maps drops its notification, but that signal can be
+                // missed - the listener rebinding, this process being restarted mid-trip, Maps
+                // being force stopped. Without a second way out the heartbeat would go on pushing
+                // stale directions to the watch for as long as the phone stayed awake.
+                if ((now - lastNotificationTime) > Constants.NAVIGATION_IDLE_TIMEOUT) {
+                    Logger.warn("NavigationDispatcher no word from Maps for {} ms, ending trip",
+                            now - lastNotificationTime);
+                    stopNavigation();
+                    return;
                 }
+                // flush() already knows when unchanged data is due and how to decide about the
+                // arrow, so the beat is only a reason to ask
+                flush(now);
 
                 heartbeat.postDelayed(this, RESEND_INTERVAL);
             }
@@ -214,6 +247,10 @@ public class NavigationDispatcher {
             heartbeat.removeCallbacks(heartbeatTask);
             heartbeatTask = null;
         }
+        if (flushTask != null) {
+            heartbeat.removeCallbacks(flushTask);
+            flushTask = null;
+        }
     }
 
     /** Tells the watch that navigation ended, so it can close the navigation screen. */
@@ -226,8 +263,9 @@ public class NavigationDispatcher {
         TransportService.sendWithTransporterAmazMod(Transport.NAVIGATION_STOP, new DataBundle());
 
         stopHeartbeat();
-        lastData = null;
-        lastIcon = new byte[0];
+        pendingData = null;
+        pendingIcon = new byte[0];
+        lastNotificationTime = 0;
 
         navigating = false;
         lastSignature = "";

@@ -62,6 +62,8 @@ public class Constants {
     public static final long NAVIGATION_MIN_INTERVAL = 1500L;
     // Navigation screen closes itself when no update arrives for this long
     public static final long NAVIGATION_STALE_TIMEOUT = 120000L;
+    // The phone gives up on a trip after this long without a word from Maps
+    public static final long NAVIGATION_IDLE_TIMEOUT = 180000L;
     public static final String PREF_BATTERY_CHART = "preference.battery.chart";
     public static final String PREF_HEARTRATE_CHART = "preference.heartrate.chart";
     public static final String PREF_BATTERY_BACKGROUND_SYNC_INTERVAL = "preference.battery.background.sync.interval";
