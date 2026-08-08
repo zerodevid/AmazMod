@@ -182,6 +182,7 @@
     <string name="navigation_idle">Tidak ada navigasi</string>
     <string name="navigation_rerouting">Mencari rute ulang…</string>
     <string name="navigation_waiting">Menunggu ponsel…</string>
+    <string name="navigation_calibrate">Kompas meleset — gerakkan jam pola angka 8</string>
     <string name="navigation_label_remaining">Sisa</string>
     <string name="navigation_label_duration">Durasi</string>
     <string name="navigation_label_arrival">Tiba</string>

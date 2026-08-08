@@ -81,6 +81,8 @@ public class NavigationWidget extends AbstractPlugin {
         progressBar = view.findViewById(R.id.navigation_widget_progress);
         compassImage = view.findViewById(R.id.navigation_widget_compass);
 
+        // No status line here, so the widget relies on the needle's tint alone to show that the
+        // compass is off; the full screen explains it in words
         compass = new NavigationCompass(mContext, compassImage);
         setupClock();
 

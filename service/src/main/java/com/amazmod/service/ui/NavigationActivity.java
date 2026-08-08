@@ -44,6 +44,8 @@ public class NavigationActivity extends Activity {
     private ImageView compassImage;
 
     private NavigationCompass compass;
+    private boolean calibrationNeeded = false;
+    private boolean phoneSilent = false;
     private TextView distanceText, roadText, roadDescriptionText, statusText;
     private TextView remainingValue, durationValue, arrivalValue;
     private TextView remainingLabel, durationLabel, arrivalLabel;
@@ -68,6 +70,13 @@ public class NavigationActivity extends Activity {
         compassImage = findViewById(R.id.activity_navigation_compass);
 
         compass = new NavigationCompass(this, compassImage);
+        compass.setCalibrationListener(new NavigationCompass.CalibrationListener() {
+            @Override
+            public void onCalibrationNeeded(boolean needed) {
+                calibrationNeeded = needed;
+                updateStatus();
+            }
+        });
         distanceText = findViewById(R.id.activity_navigation_distance);
         roadText = findViewById(R.id.activity_navigation_road);
         roadDescriptionText = findViewById(R.id.activity_navigation_road_description);
@@ -173,7 +182,25 @@ public class NavigationActivity extends Activity {
         }
 
         showTripFigures(data);
-        statusText.setVisibility(View.GONE);
+        updateStatus();
+    }
+
+    /**
+     * One line, two possible things to say. Losing the phone is reported first: a compass that
+     * needs waving about matters less than directions that have stopped arriving.
+     */
+    private void updateStatus() {
+        if (phoneSilent) {
+            statusText.setText(R.string.navigation_waiting);
+            statusText.setVisibility(View.VISIBLE);
+
+        } else if (calibrationNeeded) {
+            statusText.setText(R.string.navigation_calibrate);
+            statusText.setVisibility(View.VISIBLE);
+
+        } else {
+            statusText.setVisibility(View.GONE);
+        }
     }
 
     /**
