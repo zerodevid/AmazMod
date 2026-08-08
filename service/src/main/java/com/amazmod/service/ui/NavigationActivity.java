@@ -3,6 +3,10 @@ package com.amazmod.service.ui;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -49,6 +53,17 @@ public class NavigationActivity extends Activity {
     private boolean phoneSilent = false;
     // Whether this screen is the one being looked at, which decides if closing may change what is
     private boolean inForeground = false;
+
+    private TextView heartText;
+    private SensorManager sensorManager;
+    private SensorEventListener heartListener, lightListener;
+    private boolean heartWanted = false, brightnessWanted = false;
+    private String trafficAhead = "";
+
+    // Below this the screen is dimmed to save power; above it is daylight and needs full output
+    private static final float DAYLIGHT_LUX = 2000f;
+    private static final float NIGHT_LUX = 10f;
+    private static final float MIN_BRIGHTNESS = 0.15f;
     private TextView distanceText, roadText, roadDescriptionText, statusText;
     private TextView remainingValue, durationValue, arrivalValue;
     private TextView remainingLabel, durationLabel, arrivalLabel;
@@ -71,6 +86,10 @@ public class NavigationActivity extends Activity {
         progressBar = findViewById(R.id.activity_navigation_progress);
         clockText = findViewById(R.id.activity_navigation_clock);
         compassImage = findViewById(R.id.activity_navigation_compass);
+        heartText = findViewById(R.id.activity_navigation_heart);
+
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        setupExtraSensors();
 
         compass = new NavigationCompass(this, compassImage);
         compass.setCalibrationListener(new NavigationCompass.CalibrationListener() {
@@ -115,6 +134,11 @@ public class NavigationActivity extends Activity {
 
         compass.setVisible(true);
         inForeground = true;
+
+        if (heartWanted)
+            startSensor(heartListener, Sensor.TYPE_HEART_RATE);
+        if (brightnessWanted)
+            startSensor(lightListener, Sensor.TYPE_LIGHT);
     }
 
     @Override
@@ -127,6 +151,10 @@ public class NavigationActivity extends Activity {
 
         compass.setVisible(false);
         inForeground = false;
+
+        // Neither sensor is worth running for a screen nobody is looking at
+        stopSensor(heartListener);
+        stopSensor(lightListener);
 
         super.onPause();
     }
@@ -154,6 +182,9 @@ public class NavigationActivity extends Activity {
         updateClock();
 
         compass.setBearing(data.getBearing());
+
+        trafficAhead = data.getTrafficAhead();
+        applyExtras(data);
 
         // Maps is recalculating: it gives us a status line instead of a real instruction
         if (data.isRerouting()) {
@@ -191,6 +222,118 @@ public class NavigationActivity extends Activity {
     }
 
     /**
+     * The heart rate sensor and the light sensor are both opt-in from the phone, because both cost
+     * battery on a watch whose screen may already be held on for the whole trip.
+     */
+    private void setupExtraSensors() {
+        if (sensorManager == null) {
+            Logger.warn("NavigationActivity no SensorManager, extras unavailable");
+            return;
+        }
+
+        heartListener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                final int bpm = Math.round(event.values[0]);
+                // The sensor reports 0 while it is still looking for a pulse
+                if (bpm <= 0)
+                    return;
+
+                heartText.setText("\u2665 " + bpm);
+                heartText.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            }
+        };
+
+        lightListener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                applyBrightness(event.values[0]);
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            }
+        };
+    }
+
+    private void applyExtras(NavigationData data) {
+        setHeartRate(data.isShowHeartRate());
+        setAutoBrightness(data.isAutoBrightness());
+        updateStatus();
+    }
+
+    private void setHeartRate(boolean wanted) {
+        if (wanted == heartWanted)
+            return;
+
+        heartWanted = wanted;
+
+        if (!wanted) {
+            stopSensor(heartListener);
+            heartText.setVisibility(View.GONE);
+            return;
+        }
+
+        if (inForeground)
+            startSensor(heartListener, Sensor.TYPE_HEART_RATE);
+    }
+
+    private void setAutoBrightness(boolean wanted) {
+        if (wanted == brightnessWanted)
+            return;
+
+        brightnessWanted = wanted;
+
+        if (!wanted) {
+            stopSensor(lightListener);
+            // Back to whatever the system would have chosen
+            final android.view.WindowManager.LayoutParams params = getWindow().getAttributes();
+            params.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+            getWindow().setAttributes(params);
+            return;
+        }
+
+        if (inForeground)
+            startSensor(lightListener, Sensor.TYPE_LIGHT);
+    }
+
+    /**
+     * Brightness is set on this window rather than in system settings, so it applies only while
+     * navigation is showing and cannot be left behind if the screen closes unexpectedly.
+     */
+    private void applyBrightness(float lux) {
+        final float span = DAYLIGHT_LUX - NIGHT_LUX;
+        final float fraction = Math.max(0f, Math.min(1f, (lux - NIGHT_LUX) / span));
+        final float brightness = MIN_BRIGHTNESS + fraction * (1f - MIN_BRIGHTNESS);
+
+        final android.view.WindowManager.LayoutParams params = getWindow().getAttributes();
+        params.screenBrightness = brightness;
+        getWindow().setAttributes(params);
+    }
+
+    private void startSensor(SensorEventListener listener, int type) {
+        if (sensorManager == null || listener == null)
+            return;
+
+        final Sensor sensor = sensorManager.getDefaultSensor(type);
+        if (sensor == null) {
+            Logger.warn("NavigationActivity sensor type {} not present", type);
+            return;
+        }
+
+        sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    private void stopSensor(SensorEventListener listener) {
+        if (sensorManager != null && listener != null)
+            sensorManager.unregisterListener(listener);
+    }
+
+    /**
      * Closes and leaves the watch on its watch face rather than on whatever happened to be behind
      * this screen, which after a trip is usually a stale AmazMod page nobody asked for.
      *
@@ -219,11 +362,19 @@ public class NavigationActivity extends Activity {
      */
     private void updateStatus() {
         if (phoneSilent) {
+            statusText.setTextColor(getResources().getColor(R.color.colorRed));
             statusText.setText(R.string.navigation_waiting);
             statusText.setVisibility(View.VISIBLE);
 
         } else if (calibrationNeeded) {
+            statusText.setTextColor(getResources().getColor(R.color.colorRed));
             statusText.setText(R.string.navigation_calibrate);
+            statusText.setVisibility(View.VISIBLE);
+
+        } else if (!trafficAhead.isEmpty()) {
+            // Amber, the colour Maps itself uses for a jam
+            statusText.setTextColor(0xFFFFA000);
+            statusText.setText(getString(R.string.navigation_traffic_ahead, trafficAhead));
             statusText.setVisibility(View.VISIBLE);
 
         } else {

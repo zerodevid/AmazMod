@@ -21,6 +21,7 @@ import org.tinylog.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
+import amazmod.com.transport.Constants;
 import amazmod.com.transport.data.NavigationData;
 
 /**
@@ -119,6 +120,74 @@ public class GMapsNavigationParser {
         deriveRemainingTime();
         deriveProgress();
         deriveBearing();
+        deriveTraffic();
+    }
+
+    /**
+     * Finds the first congested stretch close enough ahead to be worth mentioning.
+     *
+     * The progress bar is not one bar but a list of coloured stretches: grey for the part already
+     * travelled, blue for clear road, amber for a jam. Their lengths sum exactly to progressMax, so
+     * walking them accumulates distance along the route and the first non-clear stretch past our
+     * own position is the next hold-up.
+     *
+     * Anything beyond the horizon is left out. Knowing there is a jam 130 km away, which is what the
+     * first captured route reported, is not something to spend a line of a watch screen on.
+     */
+    private void deriveTraffic() {
+        final Bundle extras = notification.extras;
+        if (extras == null)
+            return;
+
+        final java.util.ArrayList<Bundle> segments;
+        try {
+            segments = extras.getParcelableArrayList("android.progressSegments");
+        } catch (Exception e) {
+            Logger.error("GMapsNavigationParser traffic segments unreadable: " + e.getMessage());
+            return;
+        }
+
+        if (segments == null || segments.isEmpty())
+            return;
+
+        final int travelled = extras.getInt("android.progress", 0);
+
+        long walked = 0;
+        for (Bundle segment : segments) {
+            if (segment == null)
+                continue;
+
+            final long length = segment.getInt("length", 0);
+            final int colour = segment.getInt("colorInt", 0);
+            final long startsAt = walked;
+            walked += length;
+
+            // Behind us already
+            if (walked <= travelled)
+                continue;
+
+            if (isClear(colour))
+                continue;
+
+            final long distanceAway = Math.max(0, startsAt - travelled);
+            if (distanceAway > Constants.NAVIGATION_TRAFFIC_HORIZON_METRES)
+                return;
+
+            navigationData.setTrafficAhead(NavigationTextParser.formatDistanceMetres(length));
+            sources.add("traffic=" + NavigationTextParser.formatDistanceMetres(distanceAway) + " ahead");
+            return;
+        }
+    }
+
+    /**
+     * Maps paints clear road blue and the part behind you grey; a jam is amber and heavier traffic
+     * redder still. Testing for the two known-good colours rather than listing the bad ones means a
+     * shade we have not seen counts as congestion, which errs the safe way.
+     */
+    private boolean isClear(int colour) {
+        final int rgb = colour & 0x00FFFFFF;
+        return rgb == 0x00B0FF     // Light Blue A400, clear road
+                || rgb == 0x727272; // grey, already travelled
     }
 
     /** A named direction in the instruction becomes a compass bearing for the watch. */

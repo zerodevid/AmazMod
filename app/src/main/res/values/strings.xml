@@ -521,4 +521,10 @@ follow the system theme (beta).</string>
     <string name="pref_navigation_keep_screen_on_summary">The navigation screen stays lit for the whole trip instead of timing out. Drains the watch battery noticeably faster</string>
     <string name="navigation_unit_hour">h</string>
     <string name="navigation_unit_minute">min</string>
+    <string name="pref_navigation_traffic">Show traffic ahead</string>
+    <string name="pref_navigation_traffic_summary">Warn about a jam on the route within the next few kilometres</string>
+    <string name="pref_navigation_auto_brightness">Adjust screen brightness</string>
+    <string name="pref_navigation_auto_brightness_summary">Use the watch light sensor to dim at night and brighten in sunlight</string>
+    <string name="pref_navigation_heart_rate">Show heart rate</string>
+    <string name="pref_navigation_heart_rate_summary">Read the watch heart rate sensor while navigating. One of the more expensive sensors on the watch</string>
 </resources>

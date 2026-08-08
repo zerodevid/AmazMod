@@ -153,6 +153,17 @@ public class NavigationDispatcher {
         pendingData.setKeepScreenOn(Prefs.getBoolean(Constants.PREF_NAVIGATION_KEEP_SCREEN_ON,
                 Constants.PREF_DEFAULT_NAVIGATION_KEEP_SCREEN_ON));
 
+        // The watch extras are decided here rather than on the watch so every navigation setting
+        // lives in one place instead of being split across two devices
+        if (!Prefs.getBoolean(Constants.PREF_NAVIGATION_TRAFFIC,
+                Constants.PREF_DEFAULT_NAVIGATION_TRAFFIC))
+            pendingData.setTrafficAhead("");
+
+        pendingData.setShowHeartRate(Prefs.getBoolean(Constants.PREF_NAVIGATION_HEART_RATE,
+                Constants.PREF_DEFAULT_NAVIGATION_HEART_RATE));
+        pendingData.setAutoBrightness(Prefs.getBoolean(Constants.PREF_NAVIGATION_AUTO_BRIGHTNESS,
+                Constants.PREF_DEFAULT_NAVIGATION_AUTO_BRIGHTNESS));
+
         final boolean delivered = send(pendingData, now);
         lastSentTime = now;
 

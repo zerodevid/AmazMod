@@ -56,6 +56,14 @@ public class Constants {
     public static final boolean PREF_DEFAULT_NAVIGATION_SCREEN_ON = false;
     public static final String PREF_NAVIGATION_VIBRATE_ON_TURN = "preference.navigation.vibrate.on.turn";
     public static final String PREF_NAVIGATION_KEEP_SCREEN_ON = "preference.navigation.keep.screen.on";
+    public static final String PREF_NAVIGATION_TRAFFIC = "preference.navigation.traffic";
+    public static final boolean PREF_DEFAULT_NAVIGATION_TRAFFIC = true;
+    public static final String PREF_NAVIGATION_HEART_RATE = "preference.navigation.heart.rate";
+    public static final boolean PREF_DEFAULT_NAVIGATION_HEART_RATE = false;
+    public static final String PREF_NAVIGATION_AUTO_BRIGHTNESS = "preference.navigation.auto.brightness";
+    public static final boolean PREF_DEFAULT_NAVIGATION_AUTO_BRIGHTNESS = true;
+    // Congestion further ahead than this is not worth a line on a watch
+    public static final int NAVIGATION_TRAFFIC_HORIZON_METRES = 5000;
     public static final boolean PREF_DEFAULT_NAVIGATION_KEEP_SCREEN_ON = true;
     public static final boolean PREF_DEFAULT_NAVIGATION_VIBRATE_ON_TURN = true;
     // Minimum gap between two navigation packets, keeps the BT tunnel from being flooded

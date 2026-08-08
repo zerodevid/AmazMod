@@ -186,4 +186,5 @@
     <string name="navigation_label_remaining">Sisa</string>
     <string name="navigation_label_duration">Durasi</string>
     <string name="navigation_label_arrival">Tiba</string>
+    <string name="navigation_traffic_ahead">Macet di depan — %1$s</string>
 </resources>

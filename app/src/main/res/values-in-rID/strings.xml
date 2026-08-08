@@ -510,4 +510,10 @@ follow the system theme (beta).</string>
     <string name="enable_sleep">Aktifkan Tidur Sebagai Android</string>
     <string name="navigation_unit_hour">j</string>
     <string name="navigation_unit_minute">mnt</string>
+    <string name="pref_navigation_traffic">Tampilkan kemacetan di depan</string>
+    <string name="pref_navigation_traffic_summary">Beri tahu kalau ada kemacetan di rute dalam beberapa kilometer ke depan</string>
+    <string name="pref_navigation_auto_brightness">Sesuaikan kecerahan layar</string>
+    <string name="pref_navigation_auto_brightness_summary">Pakai sensor cahaya jam untuk meredup di malam hari dan menerang di bawah matahari</string>
+    <string name="pref_navigation_heart_rate">Tampilkan detak jantung</string>
+    <string name="pref_navigation_heart_rate_summary">Baca sensor detak jantung jam selama navigasi. Termasuk sensor paling boros di jam</string>
 </resources>

@@ -84,6 +84,30 @@
             android:summary="@string/pref_navigation_keep_screen_on_summary"
             android:title="@string/pref_navigation_keep_screen_on" />
 
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="true"
+            android:dependency="preference.enable.navigation"
+            android:key="preference.navigation.traffic"
+            android:summary="@string/pref_navigation_traffic_summary"
+            android:title="@string/pref_navigation_traffic" />
+
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="true"
+            android:dependency="preference.enable.navigation"
+            android:key="preference.navigation.auto.brightness"
+            android:summary="@string/pref_navigation_auto_brightness_summary"
+            android:title="@string/pref_navigation_auto_brightness" />
+
+        <SwitchPreferenceCompat
+            app:iconSpaceReserved="false"
+            android:defaultValue="false"
+            android:dependency="preference.enable.navigation"
+            android:key="preference.navigation.heart.rate"
+            android:summary="@string/pref_navigation_heart_rate_summary"
+            android:title="@string/pref_navigation_heart_rate" />
+
         <DropDownPreference
             app:iconSpaceReserved="false"
             android:dependency="preference.enable.notifications"
