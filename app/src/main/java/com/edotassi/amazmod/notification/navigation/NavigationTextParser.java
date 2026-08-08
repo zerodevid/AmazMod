@@ -215,15 +215,17 @@ public class NavigationTextParser {
         if (metres < 0)
             return "";
 
+        // No space before the unit, matching the durations beside them. Three figures have to
+        // share 188dp on this screen and "1150 km" was being cut to "1150..."
         if (metres < 1000)
-            return metres + " m";
+            return metres + "m";
 
         final double km = metres / 1000.0;
 
         if (km < 100)
-            return String.format(java.util.Locale.getDefault(), "%.1f km", km);
+            return String.format(java.util.Locale.getDefault(), "%.1fkm", km);
 
-        return Math.round(km) + " km";
+        return Math.round(km) + "km";
     }
 
     /**
@@ -280,15 +282,17 @@ public class NavigationTextParser {
         if (minutes < 0)
             return "";
 
+        // No space before the unit. A 1150 km route reads "13 j 19 mnt", which does not fit the
+        // column on a 360px screen and was being cut off mid-word
         if (minutes < 60)
-            return minutes + " " + minuteUnit;
+            return minutes + minuteUnit;
 
         final int hours = minutes / 60;
         final int rest = minutes % 60;
 
         return (rest == 0)
-                ? (hours + " " + hourUnit)
-                : (hours + " " + hourUnit + " " + rest + " " + minuteUnit);
+                ? (hours + hourUnit)
+                : (hours + hourUnit + " " + rest + minuteUnit);
     }
 
     /**

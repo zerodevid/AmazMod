@@ -59,6 +59,8 @@ public class GMapsNavigationParser {
     private static final int MIN_INSTRUCTION_LENGTH = 8;
     // Below this an ImageView is a status glyph rather than the manoeuvre arrow
     private static final int MIN_ICON_SIZE = 16;
+    // Beyond this the stretches are thinner than a pixel on a 360px screen
+    private static final int MAX_SEGMENTS = 40;
 
     private final Context context;
     private final Context mapsContext;
@@ -121,6 +123,7 @@ public class GMapsNavigationParser {
         deriveProgress();
         deriveBearing();
         deriveTraffic();
+        deriveSegments();
     }
 
     /**
@@ -177,6 +180,47 @@ public class GMapsNavigationParser {
             sources.add("traffic=" + NavigationTextParser.formatDistanceMetres(distanceAway) + " ahead");
             return;
         }
+    }
+
+    /**
+     * Carries the whole coloured bar over, not just the next jam.
+     *
+     * The phone's notification already draws the route as stretches of colour - clear, slow,
+     * stopped - and that picture says more at a glance than any sentence about the next hold-up.
+     * Sending the lengths and colours lets the watch draw the same bar rather than a summary of it.
+     */
+    private void deriveSegments() {
+        final Bundle extras = notification.extras;
+        if (extras == null)
+            return;
+
+        final java.util.ArrayList<Bundle> segments;
+        try {
+            segments = extras.getParcelableArrayList("android.progressSegments");
+        } catch (Exception e) {
+            return;
+        }
+
+        if (segments == null || segments.isEmpty())
+            return;
+
+        // A very long route can be cut into more stretches than a 360px screen can show apart, and
+        // every one of them costs bytes on the tunnel several times a minute
+        final int count = Math.min(segments.size(), MAX_SEGMENTS);
+        final int[] lengths = new int[count];
+        final int[] colours = new int[count];
+
+        for (int i = 0; i < count; i++) {
+            final Bundle segment = segments.get(i);
+            if (segment == null)
+                continue;
+
+            lengths[i] = segment.getInt("length", 0);
+            colours[i] = segment.getInt("colorInt", 0);
+        }
+
+        navigationData.setSegmentLengths(lengths);
+        navigationData.setSegmentColours(colours);
     }
 
     /**

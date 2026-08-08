@@ -39,6 +39,8 @@ public class NavigationData extends Transportable implements Parcelable {
     private static final String SHOW_HEART_RATE = "showHeartRate";
     private static final String AUTO_BRIGHTNESS = "autoBrightness";
     private static final String SPEED = "speed";
+    private static final String SEGMENT_LENGTHS = "segmentLengths";
+    private static final String SEGMENT_COLOURS = "segmentColours";
 
     // "Turn right onto", the road name in the Maps notification
     private String nextRoad;
@@ -73,6 +75,10 @@ public class NavigationData extends Transportable implements Parcelable {
     private boolean autoBrightness;
     // Current speed, already formatted, or empty when unknown or switched off
     private String speed;
+    // The route broken into stretches with the colours Maps paints them: the traffic picture from
+    // the phone's own progress bar, carried over so the watch can draw the same thing
+    private int[] segmentLengths;
+    private int[] segmentColours;
 
     public NavigationData() {
         this.nextRoad = "";
@@ -94,6 +100,8 @@ public class NavigationData extends Transportable implements Parcelable {
         this.showHeartRate = false;
         this.autoBrightness = false;
         this.speed = "";
+        this.segmentLengths = new int[0];
+        this.segmentColours = new int[0];
     }
 
     protected NavigationData(Parcel in) {
@@ -116,6 +124,8 @@ public class NavigationData extends Transportable implements Parcelable {
         showHeartRate = in.readByte() != 0;
         autoBrightness = in.readByte() != 0;
         speed = in.readString();
+        segmentLengths = in.createIntArray();
+        segmentColours = in.createIntArray();
     }
 
     public static final Creator<NavigationData> CREATOR = new Creator<NavigationData>() {
@@ -152,6 +162,8 @@ public class NavigationData extends Transportable implements Parcelable {
         dataBundle.putBoolean(SHOW_HEART_RATE, showHeartRate);
         dataBundle.putBoolean(AUTO_BRIGHTNESS, autoBrightness);
         dataBundle.putString(SPEED, speed);
+        dataBundle.putIntArray(SEGMENT_LENGTHS, segmentLengths);
+        dataBundle.putIntArray(SEGMENT_COLOURS, segmentColours);
 
         return dataBundle;
     }
@@ -178,6 +190,8 @@ public class NavigationData extends Transportable implements Parcelable {
         navigationData.setShowHeartRate(dataBundle.getBoolean(SHOW_HEART_RATE));
         navigationData.setAutoBrightness(dataBundle.getBoolean(AUTO_BRIGHTNESS));
         navigationData.setSpeed(dataBundle.getString(SPEED));
+        navigationData.setSegmentLengths(dataBundle.getIntArray(SEGMENT_LENGTHS));
+        navigationData.setSegmentColours(dataBundle.getIntArray(SEGMENT_COLOURS));
 
         return navigationData;
     }
@@ -345,6 +359,22 @@ public class NavigationData extends Transportable implements Parcelable {
         this.speed = speed;
     }
 
+    public int[] getSegmentLengths() {
+        return segmentLengths == null ? new int[0] : segmentLengths;
+    }
+
+    public void setSegmentLengths(int[] segmentLengths) {
+        this.segmentLengths = segmentLengths == null ? new int[0] : segmentLengths;
+    }
+
+    public int[] getSegmentColours() {
+        return segmentColours == null ? new int[0] : segmentColours;
+    }
+
+    public void setSegmentColours(int[] segmentColours) {
+        this.segmentColours = segmentColours == null ? new int[0] : segmentColours;
+    }
+
     /**
      * Text-only signature of the trip state, used by the phone to avoid re-sending identical data.
      * The icon is deliberately left out: it is keyed by iconHash which is part of this signature.
@@ -389,6 +419,8 @@ public class NavigationData extends Transportable implements Parcelable {
         dest.writeByte((byte) (showHeartRate ? 1 : 0));
         dest.writeByte((byte) (autoBrightness ? 1 : 0));
         dest.writeString(speed);
+        dest.writeIntArray(segmentLengths);
+        dest.writeIntArray(segmentColours);
     }
 
     @Override

@@ -14,7 +14,6 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.view.WindowManager;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.amazmod.service.R;
@@ -44,7 +43,7 @@ public class NavigationActivity extends Activity {
 
     private ImageView iconImage;
     private FrameLayout iconHolder;
-    private ProgressBar progressBar;
+    private RouteProgressView progressBar;
     private TextView clockText;
     private ImageView compassImage;
 
@@ -409,14 +408,10 @@ public class NavigationActivity extends Activity {
         durationValue.setText(NavigationFormat.orDash(data.getEte()));
         arrivalValue.setText(NavigationFormat.orDash(data.getEta()));
 
-        // Hidden rather than shown empty: a bar stuck at zero would read as "no progress made"
-        final int percent = data.getProgressPercent();
-        if (percent < 0) {
-            progressBar.setVisibility(View.GONE);
-        } else {
-            progressBar.setProgress(Math.min(100, percent));
-            progressBar.setVisibility(View.VISIBLE);
-        }
+        // Hidden rather than shown empty: an empty track would read as "no route known"
+        progressBar.setRoute(data.getSegmentLengths(), data.getSegmentColours(),
+                data.getProgressPercent());
+        progressBar.setVisibility(progressBar.hasRoute() ? View.VISIBLE : View.GONE);
     }
 
     /**

@@ -13,7 +13,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.amazmod.service.MainService;
@@ -47,7 +46,7 @@ public class NavigationWidget extends AbstractPlugin {
     private TextView distanceText, roadText, idleText;
     private TextView remainingValue, durationValue, arrivalValue;
     private TextView clockText;
-    private ProgressBar progressBar;
+    private com.amazmod.service.ui.RouteProgressView progressBar;
     private ImageView compassImage;
 
     private NavigationCompass compass;
@@ -139,13 +138,9 @@ public class NavigationWidget extends AbstractPlugin {
         durationValue.setText(NavigationFormat.orDash(data.getEte()));
         arrivalValue.setText(NavigationFormat.orDash(data.getEta()));
 
-        final int percent = data.getProgressPercent();
-        if (percent < 0) {
-            progressBar.setVisibility(View.GONE);
-        } else {
-            progressBar.setProgress(Math.min(100, percent));
-            progressBar.setVisibility(View.VISIBLE);
-        }
+        progressBar.setRoute(data.getSegmentLengths(), data.getSegmentColours(),
+                data.getProgressPercent());
+        progressBar.setVisibility(progressBar.hasRoute() ? View.VISIBLE : View.GONE);
 
         compass.setBearing(data.getBearing());
         updateClock();

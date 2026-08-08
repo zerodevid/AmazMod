@@ -168,16 +168,19 @@ public class NavigationTextParserTest {
     @Test
     public void formatsTheRouteLengthObservedOnAndroid16() {
         // progressMax 381218 minus progress 4, straight from the phone
-        assertEquals("381 km", NavigationTextParser.formatDistanceMetres(381218 - 4));
+        assertEquals("381km", NavigationTextParser.formatDistanceMetres(381218 - 4));
     }
 
     @Test
     public void formatsDistancesAcrossTheRanges() {
-        assertEquals("450 m", NavigationTextParser.formatDistanceMetres(450));
-        assertEquals("999 m", NavigationTextParser.formatDistanceMetres(999));
-        assertEquals("1.0 km", NavigationTextParser.formatDistanceMetres(1000).replace(',', '.'));
-        assertEquals("12.3 km", NavigationTextParser.formatDistanceMetres(12340).replace(',', '.'));
-        assertEquals("381 km", NavigationTextParser.formatDistanceMetres(381214));
+        assertEquals("450m", NavigationTextParser.formatDistanceMetres(450));
+        assertEquals("999m", NavigationTextParser.formatDistanceMetres(999));
+        assertEquals("1.0km", NavigationTextParser.formatDistanceMetres(1000).replace(',', '.'));
+        assertEquals("12.3km", NavigationTextParser.formatDistanceMetres(12340).replace(',', '.'));
+        assertEquals("381km", NavigationTextParser.formatDistanceMetres(381214));
+
+        // The 1150 km route that exposed the truncation
+        assertEquals("1150km", NavigationTextParser.formatDistanceMetres(1150000));
         assertEquals("", NavigationTextParser.formatDistanceMetres(-1));
     }
 
@@ -208,14 +211,17 @@ public class NavigationTextParserTest {
 
     @Test
     public void formatsDurationsInWhateverUnitsItIsGiven() {
-        assertEquals("45 mnt", NavigationTextParser.formatDuration(45, "j", "mnt"));
-        assertEquals("8 j 45 mnt", NavigationTextParser.formatDuration(525, "j", "mnt"));
-        assertEquals("2 j", NavigationTextParser.formatDuration(120, "j", "mnt"));
+        assertEquals("45mnt", NavigationTextParser.formatDuration(45, "j", "mnt"));
+        assertEquals("8j 45mnt", NavigationTextParser.formatDuration(525, "j", "mnt"));
+        assertEquals("2j", NavigationTextParser.formatDuration(120, "j", "mnt"));
         assertEquals("", NavigationTextParser.formatDuration(-1, "j", "mnt"));
 
         // Same numbers, English units: nothing about the language is baked in
-        assertEquals("45 min", NavigationTextParser.formatDuration(45, "h", "min"));
-        assertEquals("8 h 45 min", NavigationTextParser.formatDuration(525, "h", "min"));
+        assertEquals("45min", NavigationTextParser.formatDuration(45, "h", "min"));
+        assertEquals("8h 45min", NavigationTextParser.formatDuration(525, "h", "min"));
+
+        // The long route that exposed the truncation: 13 hours 19 minutes
+        assertEquals("13j 19mnt", NavigationTextParser.formatDuration(799, "j", "mnt"));
     }
 
     @Test

@@ -73,17 +73,13 @@
             android:textSize="17sp"
             tools:text="Jl. Jenderal Sudirman" />
 
-        <ProgressBar
+        <com.amazmod.service.ui.RouteProgressView
             android:id="@+id/navigation_widget_progress"
-            style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="4dp"
+            android:layout_height="7dp"
             android:layout_marginTop="10dp"
             android:layout_marginBottom="6dp"
-            android:max="100"
-            android:progressDrawable="@drawable/nav_progress"
             android:visibility="gone"
-            tools:progress="35"
             tools:visibility="visible" />
 
         <LinearLayout
